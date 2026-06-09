@@ -113,6 +113,19 @@ type DeckControlState = {
   randomDecks: DeckCard[][];
 };
 
+type StoredDeckControlState = {
+  deckCount?: number;
+  cardIds?: string[][];
+};
+
+type StoredWorkingCanvasState = {
+  spreadCards?: SpreadCard[];
+  deckStates?: Partial<Record<DeckType, StoredDeckControlState>>;
+  workingCanvasMeta?: CanvasMetadata;
+  canvasNoteDraft?: string;
+  updatedAt?: string;
+};
+
 type PendingPosition = {
   x: number;
   y: number;
@@ -136,6 +149,9 @@ type RpcDeckSnapshot = {
 type DrawCardRpcResult = SpreadCard;
 
 const CANVAS_VIEWPORT_STORAGE_KEY = "iching-card-drawing-viewport";
+const WORKING_CANVAS_STATE_STORAGE_KEY =
+  "iching-card-drawing-working-state-v1";
+const RECENT_LOCAL_STATE_MAX_AGE_MS = 30_000;
 const AUTO_DRAW_CARD_LIMIT = 50;
 const DEFAULT_CANVAS_VIEWPORT: CanvasViewport = {
   zoom: 1,
@@ -203,6 +219,147 @@ const createDeckControlStateFromRpc = (
     deckCount: result?.deck_count ?? randomDecks.length,
     randomDecks,
   } satisfies DeckControlState;
+};
+
+const serializeDeckControlState = (
+  deckState: DeckControlState,
+): StoredDeckControlState => ({
+  deckCount: deckState.deckCount,
+  cardIds: deckState.randomDecks.map((deck) => deck.map((card) => card.id)),
+});
+
+const createDeckControlStateFromStored = (
+  storedDeckState: StoredDeckControlState | undefined,
+  deckCards: DeckCard[],
+) => {
+  if (!Array.isArray(storedDeckState?.cardIds)) return null;
+
+  const cardById = new Map(deckCards.map((card) => [card.id, card]));
+  const randomDecks = storedDeckState.cardIds.map((deckCardIds) =>
+    Array.isArray(deckCardIds)
+      ? (deckCardIds
+          .map((cardId) => cardById.get(cardId))
+          .filter(Boolean) as DeckCard[])
+      : [],
+  );
+
+  return {
+    deckCount: storedDeckState.deckCount ?? randomDecks.length,
+    randomDecks,
+  } satisfies DeckControlState;
+};
+
+const readStoredWorkingCanvasState = (): StoredWorkingCanvasState | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const stored = window.localStorage.getItem(WORKING_CANVAS_STATE_STORAGE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as StoredWorkingCanvasState;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredWorkingCanvasState = (state: {
+  spreadCards: SpreadCard[];
+  deckStates: Record<DeckType, DeckControlState>;
+  workingCanvasMeta: CanvasMetadata;
+  canvasNoteDraft: string;
+}) => {
+  if (typeof window === "undefined") return null;
+
+  const snapshot: StoredWorkingCanvasState = {
+    spreadCards: state.spreadCards,
+    deckStates: {
+      iching: serializeDeckControlState(state.deckStates.iching),
+      tarot: serializeDeckControlState(state.deckStates.tarot),
+    },
+    workingCanvasMeta: state.workingCanvasMeta,
+    canvasNoteDraft: state.canvasNoteDraft,
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    window.localStorage.setItem(
+      WORKING_CANVAS_STATE_STORAGE_KEY,
+      JSON.stringify(snapshot),
+    );
+  } catch {
+    // A failed local snapshot should not block the Supabase write path.
+  }
+
+  return snapshot;
+};
+
+const isRecentStoredWorkingCanvasState = (
+  state: StoredWorkingCanvasState | null | undefined,
+) => {
+  const updatedAt = state?.updatedAt ? Date.parse(state.updatedAt) : NaN;
+  return (
+    Number.isFinite(updatedAt) &&
+    Date.now() - updatedAt <= RECENT_LOCAL_STATE_MAX_AGE_MS
+  );
+};
+
+const countDeckCards = (deckState: DeckControlState) =>
+  deckState.randomDecks.reduce((total, deck) => total + deck.length, 0);
+
+const removeCardFromDeckStates = (
+  states: Record<DeckType, DeckControlState>,
+  targetDeckType: DeckType,
+  sourceDeckIndex: number,
+  cardId: string,
+) => {
+  const targetState = states[targetDeckType];
+  const sourceDeck = targetState.randomDecks[sourceDeckIndex];
+  if (!sourceDeck) return states;
+
+  let removed = false;
+  const nextDeck = sourceDeck.filter((card) => {
+    if (!removed && card.id === cardId) {
+      removed = true;
+      return false;
+    }
+    return true;
+  });
+
+  if (!removed) return states;
+
+  return {
+    ...states,
+    [targetDeckType]: {
+      ...targetState,
+      randomDecks: targetState.randomDecks.map((deck, index) =>
+        index === sourceDeckIndex ? nextDeck : deck,
+      ),
+    },
+  } satisfies Record<DeckType, DeckControlState>;
+};
+
+const returnCardToDeckStates = (
+  states: Record<DeckType, DeckControlState>,
+  targetDeckType: DeckType,
+  sourceDeckIndex: number,
+  card: DeckCard,
+) => {
+  const targetState = states[targetDeckType];
+  const sourceDeck = targetState.randomDecks[sourceDeckIndex];
+  if (!sourceDeck || sourceDeck.some((deckCard) => deckCard.id === card.id)) {
+    return states;
+  }
+
+  return {
+    ...states,
+    [targetDeckType]: {
+      ...targetState,
+      randomDecks: targetState.randomDecks.map((deck, index) =>
+        index === sourceDeckIndex ? [card, ...deck] : deck,
+      ),
+    },
+  } satisfies Record<DeckType, DeckControlState>;
 };
 
 const buildLabelGroupRpcPayload = (group: LabelGroup | null) =>
@@ -749,14 +906,28 @@ export default function CardDrawingView({
     () => [...iChingCards, ...TAROT_CARDS],
     [iChingCards],
   );
+  const storedWorkingCanvasStateRef = useRef<StoredWorkingCanvasState | null>(
+    readStoredWorkingCanvasState(),
+  );
 
   // Deck State
   const [deckStates, setDeckStates] = useState<
     Record<DeckType, DeckControlState>
-  >(() => ({
-    iching: createDeckControlState(iChingCards),
-    tarot: createDeckControlState(TAROT_CARDS),
-  }));
+  >(() => {
+    const storedState = storedWorkingCanvasStateRef.current;
+    return {
+      iching:
+        createDeckControlStateFromStored(
+          storedState?.deckStates?.iching,
+          iChingCards,
+        ) ?? createDeckControlState(iChingCards),
+      tarot:
+        createDeckControlStateFromStored(
+          storedState?.deckStates?.tarot,
+          TAROT_CARDS,
+        ) ?? createDeckControlState(TAROT_CARDS),
+    };
+  });
   const workingCanvasId = "working-canvas";
   const resetInProgressRef = useRef(false);
   const saveDialogSubmittedRef = useRef(false);
@@ -788,10 +959,12 @@ export default function CardDrawingView({
       if (!nextDeckState) return false;
 
       deckLoadVersionRef.current[targetDeckType] += 1;
-      setDeckStates((prev) => ({
-        ...prev,
+      const nextDeckStates = {
+        ...deckStatesRef.current,
         [targetDeckType]: nextDeckState,
-      }));
+      };
+      deckStatesRef.current = nextDeckStates;
+      setDeckStates(nextDeckStates);
       return true;
     },
     [],
@@ -812,6 +985,9 @@ export default function CardDrawingView({
   );
   const workingCanvasMetaRef = useRef(workingCanvasMeta);
   const spreadCardsRef = useRef(spreadCards);
+  const deckStatesRef = useRef(deckStates);
+  const hasRestoredLocalWorkingStateRef = useRef(false);
+  const skipNextWorkingStatePersistRef = useRef(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
 
   const setZoom = useCallback((nextZoom: number) => {
@@ -862,6 +1038,52 @@ export default function CardDrawingView({
     };
   }, []);
 
+  const persistWorkingCanvasState = useCallback(
+    (
+      overrides: Partial<{
+        spreadCards: SpreadCard[];
+        deckStates: Record<DeckType, DeckControlState>;
+        workingCanvasMeta: CanvasMetadata;
+        canvasNoteDraft: string;
+      }> = {},
+    ) => {
+      const snapshot = writeStoredWorkingCanvasState({
+        spreadCards: overrides.spreadCards ?? spreadCardsRef.current,
+        deckStates: overrides.deckStates ?? deckStatesRef.current,
+        workingCanvasMeta:
+          overrides.workingCanvasMeta ?? workingCanvasMetaRef.current,
+        canvasNoteDraft:
+          overrides.canvasNoteDraft ?? canvasNoteDraftRef.current,
+      });
+      if (snapshot) {
+        storedWorkingCanvasStateRef.current = snapshot;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (hasRestoredLocalWorkingStateRef.current) return;
+
+    hasRestoredLocalWorkingStateRef.current = true;
+    const storedState = storedWorkingCanvasStateRef.current;
+    if (!storedState) return;
+
+    skipNextWorkingStatePersistRef.current = true;
+    if (Array.isArray(storedState.spreadCards)) {
+      setSpreadCards(storedState.spreadCards);
+    }
+    if (storedState.workingCanvasMeta) {
+      setWorkingCanvasMeta(storedState.workingCanvasMeta);
+    }
+    isCanvasNoteDirtyRef.current = false;
+    setCanvasNoteDraft(
+      storedState.canvasNoteDraft ??
+        storedState.workingCanvasMeta?.noteMarkdown ??
+        "",
+    );
+  }, [setSpreadCards]);
+
   useEffect(() => {
     spreadCardsRef.current = spreadCards;
     const existingCardIds = new Set(spreadCards.map((card) => card.id));
@@ -869,6 +1091,10 @@ export default function CardDrawingView({
       prev.filter((id) => existingCardIds.has(id)),
     );
   }, [spreadCards]);
+
+  useEffect(() => {
+    deckStatesRef.current = deckStates;
+  }, [deckStates]);
 
   useEffect(() => {
     canvasNoteDraftRef.current = canvasNoteDraft;
@@ -885,36 +1111,40 @@ export default function CardDrawingView({
     );
   }, [labels]);
 
+  useEffect(() => {
+    if (!user || !hasRestoredLocalWorkingStateRef.current) return;
+    if (skipNextWorkingStatePersistRef.current) {
+      skipNextWorkingStatePersistRef.current = false;
+      return;
+    }
+
+    persistWorkingCanvasState({
+      spreadCards,
+      deckStates,
+      workingCanvasMeta,
+      canvasNoteDraft,
+    });
+  }, [
+    canvasNoteDraft,
+    deckStates,
+    persistWorkingCanvasState,
+    spreadCards,
+    user,
+    workingCanvasMeta,
+  ]);
+
   const removeCardFromDeckState = useCallback(
     (targetDeckType: DeckType, sourceDeckIndex: number, cardId: string) => {
       deckLoadVersionRef.current[targetDeckType] += 1;
 
-      setDeckStates((prev) => {
-        const targetState = prev[targetDeckType];
-        const sourceDeck = targetState.randomDecks[sourceDeckIndex];
-        if (!sourceDeck) return prev;
-
-        let removed = false;
-        const nextDeck = sourceDeck.filter((card) => {
-          if (!removed && card.id === cardId) {
-            removed = true;
-            return false;
-          }
-          return true;
-        });
-
-        if (!removed) return prev;
-
-        return {
-          ...prev,
-          [targetDeckType]: {
-            ...targetState,
-            randomDecks: targetState.randomDecks.map((deck, index) =>
-              index === sourceDeckIndex ? nextDeck : deck,
-            ),
-          },
-        };
-      });
+      setDeckStates((prev) =>
+        removeCardFromDeckStates(
+          prev,
+          targetDeckType,
+          sourceDeckIndex,
+          cardId,
+        ),
+      );
     },
     [],
   );
@@ -923,25 +1153,9 @@ export default function CardDrawingView({
     (targetDeckType: DeckType, sourceDeckIndex: number, card: DeckCard) => {
       deckLoadVersionRef.current[targetDeckType] += 1;
 
-      setDeckStates((prev) => {
-        const targetState = prev[targetDeckType];
-        const sourceDeck = targetState.randomDecks[sourceDeckIndex];
-        if (
-          !sourceDeck ||
-          sourceDeck.some((deckCard) => deckCard.id === card.id)
-        )
-          return prev;
-
-        return {
-          ...prev,
-          [targetDeckType]: {
-            ...targetState,
-            randomDecks: targetState.randomDecks.map((deck, index) =>
-              index === sourceDeckIndex ? [card, ...deck] : deck,
-            ),
-          },
-        };
-      });
+      setDeckStates((prev) =>
+        returnCardToDeckStates(prev, targetDeckType, sourceDeckIndex, card),
+      );
     },
     [],
   );
@@ -993,15 +1207,67 @@ export default function CardDrawingView({
         fullDecks.push(deckCards);
       }
 
-      setDeckStates((prev) => ({
-        ...prev,
-        [targetDeckType]: {
-          deckCount: fullDecks.length,
-          randomDecks: fullDecks,
-        },
-      }));
+      const nextTargetDeckState = {
+        deckCount: fullDecks.length,
+        randomDecks: fullDecks,
+      };
+      const nextDeckStates = {
+        ...deckStatesRef.current,
+        [targetDeckType]: nextTargetDeckState,
+      };
+      deckStatesRef.current = nextDeckStates;
+      setDeckStates(nextDeckStates);
+      persistWorkingCanvasState({ deckStates: nextDeckStates });
     },
-    [],
+    [persistWorkingCanvasState],
+  );
+
+  const ensureDeckStateFromDb = useCallback(
+    async (
+      targetDeckType: DeckType,
+      targetCards: DeckCard[],
+      canApply: () => boolean = () => true,
+    ) => {
+      if (!supabase) return false;
+
+      const { data, error } = await supabase.rpc("ensure_random_decks", {
+        p_deck_type: targetDeckType,
+        p_cards: buildDeckRpcPayload(targetCards),
+        p_deck_count: Math.max(
+          1,
+          deckStatesRef.current[targetDeckType]?.deckCount || 3,
+        ),
+      });
+      if (error) throw error;
+
+      const nextDeckState = createDeckControlStateFromRpc(data, targetCards);
+      if (!nextDeckState) return false;
+      if (!canApply()) return true;
+
+      const storedDeckState = createDeckControlStateFromStored(
+        storedWorkingCanvasStateRef.current?.deckStates?.[targetDeckType],
+        targetCards,
+      );
+      const shouldKeepRecentLocalDeck = Boolean(
+        isRecentStoredWorkingCanvasState(storedWorkingCanvasStateRef.current) &&
+          storedDeckState &&
+          countDeckCards(storedDeckState) < countDeckCards(nextDeckState),
+      );
+
+      deckLoadVersionRef.current[targetDeckType] += 1;
+      const deckStateToApply = shouldKeepRecentLocalDeck
+        ? storedDeckState!
+        : nextDeckState;
+      const nextDeckStates = {
+        ...deckStatesRef.current,
+        [targetDeckType]: deckStateToApply,
+      };
+      deckStatesRef.current = nextDeckStates;
+      setDeckStates(nextDeckStates);
+      persistWorkingCanvasState({ deckStates: nextDeckStates });
+      return true;
+    },
+    [persistWorkingCanvasState],
   );
 
   useEffect(() => {
@@ -1025,14 +1291,6 @@ export default function CardDrawingView({
 
         const metadata =
           ((metadataSnap.docs[0]?.data() || {}) as CanvasMetadata) || {};
-        setWorkingCanvasMeta(metadata);
-        if (!isCanvasNoteDirtyRef.current) {
-          setCanvasNoteDraft((prev) =>
-            prev === (metadata.noteMarkdown || "")
-              ? prev
-              : metadata.noteMarkdown || "",
-          );
-        }
 
         const cardsSnap = await getDocs(
           query(collection(db, `canvases/${workingCanvasId}/cards`)),
@@ -1044,7 +1302,30 @@ export default function CardDrawingView({
             (cardDoc) => ({ id: cardDoc.id, ...cardDoc.data() }) as SpreadCard,
           )
           .sort((a, b) => (a.drawSequence || 0) - (b.drawSequence || 0));
+
+        const storedState = storedWorkingCanvasStateRef.current;
+        const shouldKeepRecentLocalCards =
+          cards.length === 0 &&
+          (storedState?.spreadCards?.length ?? 0) > 0 &&
+          isRecentStoredWorkingCanvasState(storedState);
+        if (shouldKeepRecentLocalCards) return;
+
+        setWorkingCanvasMeta(metadata);
+        if (!isCanvasNoteDirtyRef.current) {
+          setCanvasNoteDraft((prev) =>
+            prev === (metadata.noteMarkdown || "")
+              ? prev
+              : metadata.noteMarkdown || "",
+          );
+        }
         setSpreadCards(cards);
+        persistWorkingCanvasState({
+          spreadCards: cards,
+          workingCanvasMeta: metadata,
+          canvasNoteDraft: isCanvasNoteDirtyRef.current
+            ? canvasNoteDraftRef.current
+            : metadata.noteMarkdown || "",
+        });
       } catch (error) {
         if (!cancelled) {
           hasHydratedWorkingCanvasRef.current = false;
@@ -1061,7 +1342,7 @@ export default function CardDrawingView({
     return () => {
       cancelled = true;
     };
-  }, [db, setSpreadCards, user, workingCanvasId]);
+  }, [db, persistWorkingCanvasState, setSpreadCards, user, workingCanvasId]);
 
   // Hydrate decks once. Draw/remove/shuffle/deck-count handlers own later state changes.
   useEffect(() => {
@@ -1086,28 +1367,22 @@ export default function CardDrawingView({
       hasHydratedDeckStatesRef.current[targetDeckType] = true;
 
       try {
-        const snapshot = await getDocs(collection(db, deckCollection));
+        const loadedFromRpc = await ensureDeckStateFromDb(
+          targetDeckType,
+          targetCards,
+          () =>
+            !cancelled &&
+            !resetInProgressRef.current &&
+            deckLoadVersionRef.current[targetDeckType] === loadVersion,
+        );
+        if (loadedFromRpc) return;
+
         if (
           cancelled ||
           resetInProgressRef.current ||
           deckLoadVersionRef.current[targetDeckType] !== loadVersion
         )
           return;
-
-        if (snapshot.empty) {
-          if (!supabase) return;
-
-          const { data, error } = await supabase.rpc("ensure_random_decks", {
-            p_deck_type: targetDeckType,
-            p_cards: buildDeckRpcPayload(targetCards),
-            p_deck_count: 3,
-          });
-          if (error) throw error;
-          if (!cancelled) {
-            applyDeckRpcResult(targetDeckType, data, targetCards);
-          }
-          return;
-        }
 
         await refreshDeckStateFromDb(targetDeckType, targetCards);
       } catch (error) {
@@ -1128,7 +1403,7 @@ export default function CardDrawingView({
         deckLoadVersionRef.current[targetDeckType] += 1;
       });
     };
-  }, [applyDeckRpcResult, db, deckCardSets, refreshDeckStateFromDb, user]);
+  }, [db, deckCardSets, ensureDeckStateFromDb, refreshDeckStateFromDb, user]);
 
   // Load a saved canvas into the working canvas.
   useEffect(() => {
@@ -1166,9 +1441,15 @@ export default function CardDrawingView({
         try {
           pendingPositionByCardIdRef.current = {};
           isCanvasNoteDirtyRef.current = false;
+          spreadCardsRef.current = loadedSpreadCards;
           setSpreadCards(loadedSpreadCards);
           setWorkingCanvasMeta(loadedMetadata);
           setCanvasNoteDraft(loadedMetadata.noteMarkdown || "");
+          persistWorkingCanvasState({
+            spreadCards: loadedSpreadCards,
+            workingCanvasMeta: loadedMetadata,
+            canvasNoteDraft: loadedMetadata.noteMarkdown || "",
+          });
 
           const { error } = await supabase.rpc("replace_working_canvas", {
             p_cards: buildCanvasCardsRpcPayload(loadedSpreadCards),
@@ -1182,9 +1463,15 @@ export default function CardDrawingView({
           toast.success("Canvas loaded");
           onClearLoadCanvas?.();
         } catch (error) {
+          spreadCardsRef.current = previousSpreadCards;
           setSpreadCards(previousSpreadCards);
           setWorkingCanvasMeta(previousWorkingCanvasMeta);
           setCanvasNoteDraft(previousCanvasNoteDraft);
+          persistWorkingCanvasState({
+            spreadCards: previousSpreadCards,
+            workingCanvasMeta: previousWorkingCanvasMeta,
+            canvasNoteDraft: previousCanvasNoteDraft,
+          });
           console.error("Load canvas failed:", error);
           toast.error(
             isPermissionDeniedError(error)
@@ -1198,7 +1485,7 @@ export default function CardDrawingView({
       };
       executeLoad();
     }
-  }, [beginCanvasMutation, loadCanvas, setSpreadCards]);
+  }, [beginCanvasMutation, loadCanvas, persistWorkingCanvasState, setSpreadCards]);
 
   const handleReset = () => {
     setShowResetConfirm(true);
@@ -1228,7 +1515,12 @@ export default function CardDrawingView({
       updatedAt,
     };
 
+    workingCanvasMetaRef.current = nextMetadata;
     setWorkingCanvasMeta(nextMetadata);
+    persistWorkingCanvasState({
+      workingCanvasMeta: nextMetadata,
+      canvasNoteDraft: metadata.noteMarkdown ?? canvasNoteDraftRef.current,
+    });
 
     if (!db) {
       return;
@@ -1278,16 +1570,11 @@ export default function CardDrawingView({
     const endCanvasMutation = beginCanvasMutation();
     let didClearCanvasInDb = false;
 
-    setSpreadCards([]);
-    closeBulkLabelPanel();
-    setDeckStates({
+    const resetDeckStates = {
       iching: createDeckControlState(iChingCards),
       tarot: createDeckControlState(TAROT_CARDS),
-    });
-    resetCanvasViewport();
-    isCanvasNoteDirtyRef.current = false;
-    setCanvasNoteDraft("");
-    setWorkingCanvasMeta({
+    };
+    const resetMetadata: CanvasMetadata = {
       noteMarkdown: "",
       scenario: "",
       source: "manual",
@@ -1295,6 +1582,22 @@ export default function CardDrawingView({
       cardCount: 0,
       type: "working",
       status: "active",
+    };
+
+    setSpreadCards([]);
+    closeBulkLabelPanel();
+    setDeckStates(resetDeckStates);
+    resetCanvasViewport();
+    isCanvasNoteDirtyRef.current = false;
+    setCanvasNoteDraft("");
+    setWorkingCanvasMeta(resetMetadata);
+    spreadCardsRef.current = [];
+    deckStatesRef.current = resetDeckStates;
+    persistWorkingCanvasState({
+      spreadCards: [],
+      deckStates: resetDeckStates,
+      workingCanvasMeta: resetMetadata,
+      canvasNoteDraft: "",
     });
 
     resetInProgressRef.current = true;
@@ -1320,6 +1623,14 @@ export default function CardDrawingView({
         setWorkingCanvasMeta(previousWorkingCanvasMeta);
         isCanvasNoteDirtyRef.current = false;
         setCanvasNoteDraft(previousCanvasNoteDraft);
+        spreadCardsRef.current = previousSpreadCards;
+        deckStatesRef.current = previousDeckStates;
+        persistWorkingCanvasState({
+          spreadCards: previousSpreadCards,
+          deckStates: previousDeckStates,
+          workingCanvasMeta: previousWorkingCanvasMeta,
+          canvasNoteDraft: previousCanvasNoteDraft,
+        });
         toast.error(
           isQuotaExceededError(error)
             ? "Supabase quota exceeded. Canvas was not reset in DB."
@@ -1464,10 +1775,16 @@ export default function CardDrawingView({
       if (masterDataVersion) {
         onMasterDataWritten(masterDataVersion);
       }
+      spreadCardsRef.current = plan.spreadCards;
       setSpreadCards(plan.spreadCards);
       setWorkingCanvasMeta(nextMetadata);
       isCanvasNoteDirtyRef.current = false;
       setCanvasNoteDraft(plan.noteMarkdown);
+      persistWorkingCanvasState({
+        spreadCards: plan.spreadCards,
+        workingCanvasMeta: nextMetadata,
+        canvasNoteDraft: plan.noteMarkdown,
+      });
       closeBulkLabelPanel();
       setShowAutoDrawDialog(false);
       setIsNotePanelOpen(true);
@@ -1476,12 +1793,18 @@ export default function CardDrawingView({
       );
       return true;
     } catch (error) {
+      spreadCardsRef.current = previousSpreadCards;
       setSpreadCards(previousSpreadCards);
       setLabels(previousLabels);
       setLabelGroups(previousLabelGroups);
       setWorkingCanvasMeta(previousWorkingCanvasMeta);
       isCanvasNoteDirtyRef.current = false;
       setCanvasNoteDraft(previousCanvasNoteDraft);
+      persistWorkingCanvasState({
+        spreadCards: previousSpreadCards,
+        workingCanvasMeta: previousWorkingCanvasMeta,
+        canvasNoteDraft: previousCanvasNoteDraft,
+      });
       console.error("Auto-Draw failed:", error);
       toast.error(error instanceof Error ? error.message : "Auto-Draw failed");
       return false;
@@ -1582,13 +1905,14 @@ export default function CardDrawingView({
       targetCards.map((card) => [card.id, card.labels || []]),
     );
 
-    setSpreadCards((prev) =>
-      prev.map((card) =>
+    const nextSpreadCards = currentSpreadCards.map((card) =>
         nextLabelsByCardId.has(card.id)
           ? { ...card, labels: nextLabelsByCardId.get(card.id) || [] }
           : card,
-      ),
     );
+    spreadCardsRef.current = nextSpreadCards;
+    setSpreadCards(nextSpreadCards);
+    persistWorkingCanvasState({ spreadCards: nextSpreadCards });
 
     if (db) {
       const updatedAt = new Date().toISOString();
@@ -1607,8 +1931,7 @@ export default function CardDrawingView({
           .filter(Boolean) as string[];
         if (failedCardIds.length === 0) return;
 
-        setSpreadCards((prev) =>
-          prev.map((card) => {
+        const revertedSpreadCards = spreadCardsRef.current.map((card) => {
             const failedLabels = nextLabelsByCardId.get(card.id);
             const previousLabels = previousLabelsByCardId.get(card.id);
             if (
@@ -1619,8 +1942,10 @@ export default function CardDrawingView({
               return card;
 
             return { ...card, labels: previousLabels };
-          }),
-        );
+          });
+        spreadCardsRef.current = revertedSpreadCards;
+        setSpreadCards(revertedSpreadCards);
+        persistWorkingCanvasState({ spreadCards: revertedSpreadCards });
         const firstFailedResult = results.find(
           (result) => result.status === "rejected",
         );
@@ -1751,16 +2076,17 @@ export default function CardDrawingView({
         setBulkSelectedLabelIds((prev) =>
           prev.filter((labelId) => labelId !== id),
         );
-        setSpreadCards((prev) =>
-          prev.map((card) =>
+        const nextSpreadCards = spreadCardsRef.current.map((card) =>
             card.labels?.includes(id)
               ? {
                   ...card,
                   labels: card.labels.filter((labelId) => labelId !== id),
                 }
               : card,
-          ),
         );
+        spreadCardsRef.current = nextSpreadCards;
+        setSpreadCards(nextSpreadCards);
+        persistWorkingCanvasState({ spreadCards: nextSpreadCards });
         handleSupabaseError(error, OperationType.WRITE, `labels/${id}`);
       });
     }
@@ -1781,7 +2107,8 @@ export default function CardDrawingView({
     const sourceDeckType = deckType;
     const cardData = activeCards.find((c) => c.id === cardId);
     if (!cardData) return;
-    const previousSpreadCards = spreadCards;
+    const previousSpreadCards = spreadCardsRef.current;
+    const previousDeckStates = deckStatesRef.current;
     const endCanvasMutation = beginCanvasMutation();
 
     const newSpreadCard: any = {
@@ -1793,19 +2120,33 @@ export default function CardDrawingView({
       labels: [],
       isReversed: false,
       polarity: null,
-      drawSequence: spreadCards.length + 1,
-      placedSequence: spreadCards.length + 1,
+      drawSequence: previousSpreadCards.length + 1,
+      placedSequence: previousSpreadCards.length + 1,
     };
 
     if (sourceDeckIndex !== undefined) {
       newSpreadCard.sourceDeckIndex = sourceDeckIndex;
     }
 
-    setSpreadCards((prev) => [...prev, newSpreadCard]);
-
+    const optimisticSpreadCards = [...previousSpreadCards, newSpreadCard];
+    let optimisticDeckStates = previousDeckStates;
     if (sourceDeckIndex !== undefined) {
-      removeCardFromDeckState(sourceDeckType, sourceDeckIndex, cardId);
+      deckLoadVersionRef.current[sourceDeckType] += 1;
+      optimisticDeckStates = removeCardFromDeckStates(
+        previousDeckStates,
+        sourceDeckType,
+        sourceDeckIndex,
+        cardId,
+      );
+      deckStatesRef.current = optimisticDeckStates;
+      setDeckStates(optimisticDeckStates);
     }
+    spreadCardsRef.current = optimisticSpreadCards;
+    setSpreadCards(optimisticSpreadCards);
+    persistWorkingCanvasState({
+      spreadCards: optimisticSpreadCards,
+      deckStates: optimisticDeckStates,
+    });
 
     try {
       const { data, error } = await supabase.rpc(
@@ -1822,22 +2163,38 @@ export default function CardDrawingView({
       if (error) throw error;
 
       const drawnCard = (data || newSpreadCard) as DrawCardRpcResult;
-      setSpreadCards((prev) => {
-        const nextCard = {
-          ...newSpreadCard,
-          ...drawnCard,
-        };
-        return prev.some((spreadCard) => spreadCard.id === id)
-          ? prev.map((spreadCard) =>
-              spreadCard.id === id ? nextCard : spreadCard,
-            )
-          : [...prev, nextCard];
-      });
-    } catch (error) {
-      setSpreadCards(previousSpreadCards);
-      if (sourceDeckIndex !== undefined) {
-        returnCardToDeckState(sourceDeckType, sourceDeckIndex, cardData);
+      const nextCard = {
+        ...newSpreadCard,
+        ...drawnCard,
+      };
+      const syncedSpreadCards = spreadCardsRef.current.some(
+        (spreadCard) => spreadCard.id === id,
+      )
+        ? spreadCardsRef.current.map((spreadCard) =>
+            spreadCard.id === id ? nextCard : spreadCard,
+          )
+        : [...spreadCardsRef.current, nextCard];
+      spreadCardsRef.current = syncedSpreadCards;
+      setSpreadCards(syncedSpreadCards);
+      persistWorkingCanvasState({ spreadCards: syncedSpreadCards });
+
+      try {
+        const targetCards = deckCardSets[sourceDeckType];
+        if (!(await ensureDeckStateFromDb(sourceDeckType, targetCards))) {
+          await refreshDeckStateFromDb(sourceDeckType, targetCards);
+        }
+      } catch (syncError) {
+        console.warn("Refresh deck state after draw failed:", syncError);
       }
+    } catch (error) {
+      spreadCardsRef.current = previousSpreadCards;
+      deckStatesRef.current = previousDeckStates;
+      setSpreadCards(previousSpreadCards);
+      setDeckStates(previousDeckStates);
+      persistWorkingCanvasState({
+        spreadCards: previousSpreadCards,
+        deckStates: previousDeckStates,
+      });
       console.error("Draw card failed:", error);
       toast.error(
         isPermissionDeniedError(error)
@@ -1868,11 +2225,12 @@ export default function CardDrawingView({
       positionRevisionRef.current = revision;
       pendingPositionByCardIdRef.current[id] = { x, y, revision };
 
-      setSpreadCards((prev) =>
-        prev.map((spreadCard) =>
-          spreadCard.id === id ? { ...spreadCard, x, y } : spreadCard,
-        ),
+      const nextSpreadCards = spreadCardsRef.current.map((spreadCard) =>
+        spreadCard.id === id ? { ...spreadCard, x, y } : spreadCard,
       );
+      spreadCardsRef.current = nextSpreadCards;
+      setSpreadCards(nextSpreadCards);
+      persistWorkingCanvasState({ spreadCards: nextSpreadCards });
 
       try {
         await updateDoc(doc(db, `canvases/${workingCanvasId}/cards`, id), {
@@ -1889,8 +2247,7 @@ export default function CardDrawingView({
         if (pending?.revision !== revision) return;
 
         delete pendingPositionByCardIdRef.current[id];
-        setSpreadCards((prev) =>
-          prev.map((spreadCard) =>
+        const revertedSpreadCards = spreadCardsRef.current.map((spreadCard) =>
             spreadCard.id === id && spreadCard.x === x && spreadCard.y === y
               ? {
                   ...spreadCard,
@@ -1898,8 +2255,10 @@ export default function CardDrawingView({
                   y: previousPosition.y,
                 }
               : spreadCard,
-          ),
         );
+        spreadCardsRef.current = revertedSpreadCards;
+        setSpreadCards(revertedSpreadCards);
+        persistWorkingCanvasState({ spreadCards: revertedSpreadCards });
         console.error("Update position failed:", error);
         toast.error(
           isQuotaExceededError(error)
@@ -1908,7 +2267,7 @@ export default function CardDrawingView({
         );
       }
     },
-    [setSpreadCards, workingCanvasId],
+    [persistWorkingCanvasState, setSpreadCards, workingCanvasId],
   );
 
   const persistRemoveCardWithTableWrites = useCallback(
@@ -1994,15 +2353,29 @@ export default function CardDrawingView({
       );
       const endCanvasMutation = beginCanvasMutation();
 
-      setSpreadCards((prev) => prev.filter((card) => card.id !== id));
+      const previousDeckStates = deckStatesRef.current;
+      const nextSpreadCards = previousSpreadCards.filter(
+        (card) => card.id !== id,
+      );
+      let nextDeckStates = previousDeckStates;
 
       if (cardToRemove.sourceDeckIndex !== undefined && sourceCard) {
-        returnCardToDeckState(
+        deckLoadVersionRef.current[sourceDeckType] += 1;
+        nextDeckStates = returnCardToDeckStates(
+          previousDeckStates,
           sourceDeckType,
           cardToRemove.sourceDeckIndex,
           sourceCard,
         );
+        deckStatesRef.current = nextDeckStates;
+        setDeckStates(nextDeckStates);
       }
+      spreadCardsRef.current = nextSpreadCards;
+      setSpreadCards(nextSpreadCards);
+      persistWorkingCanvasState({
+        spreadCards: nextSpreadCards,
+        deckStates: nextDeckStates,
+      });
 
       try {
         const { error } = await supabase.rpc(
@@ -2018,15 +2391,26 @@ export default function CardDrawingView({
             throw error;
           }
         }
-      } catch (error) {
-        setSpreadCards(previousSpreadCards);
-        if (cardToRemove.sourceDeckIndex !== undefined && sourceCard) {
-          removeCardFromDeckState(
-            sourceDeckType,
-            cardToRemove.sourceDeckIndex,
-            sourceCard.id,
-          );
+
+        if (cardToRemove.sourceDeckIndex !== undefined) {
+          try {
+            const targetCards = deckCardSets[sourceDeckType];
+            if (!(await ensureDeckStateFromDb(sourceDeckType, targetCards))) {
+              await refreshDeckStateFromDb(sourceDeckType, targetCards);
+            }
+          } catch (syncError) {
+            console.warn("Refresh deck state after remove failed:", syncError);
+          }
         }
+      } catch (error) {
+        spreadCardsRef.current = previousSpreadCards;
+        deckStatesRef.current = previousDeckStates;
+        setSpreadCards(previousSpreadCards);
+        setDeckStates(previousDeckStates);
+        persistWorkingCanvasState({
+          spreadCards: previousSpreadCards,
+          deckStates: previousDeckStates,
+        });
         console.error("Remove card failed:", error);
         toast.error(
           isQuotaExceededError(error)
@@ -2041,9 +2425,11 @@ export default function CardDrawingView({
     [
       allCards,
       beginCanvasMutation,
+      deckCardSets,
+      ensureDeckStateFromDb,
       persistRemoveCardWithTableWrites,
-      removeCardFromDeckState,
-      returnCardToDeckState,
+      persistWorkingCanvasState,
+      refreshDeckStateFromDb,
       setSpreadCards,
     ],
   );
@@ -2055,13 +2441,12 @@ export default function CardDrawingView({
       const previousLabels = card.labels || [];
       const nextLabels = Array.from(new Set(labelIds));
 
-      setSpreadCards((prev) =>
-        prev.map((spreadCard) =>
-          spreadCard.id === id
-            ? { ...spreadCard, labels: nextLabels }
-            : spreadCard,
-        ),
+      const nextSpreadCards = spreadCardsRef.current.map((spreadCard) =>
+        spreadCard.id === id ? { ...spreadCard, labels: nextLabels } : spreadCard,
       );
+      spreadCardsRef.current = nextSpreadCards;
+      setSpreadCards(nextSpreadCards);
+      persistWorkingCanvasState({ spreadCards: nextSpreadCards });
 
       if (!db) return;
 
@@ -2069,19 +2454,20 @@ export default function CardDrawingView({
         labels: nextLabels,
         updatedAt: new Date().toISOString(),
       }).catch((error) => {
-        setSpreadCards((prev) =>
-          prev.map((spreadCard) =>
+        const revertedSpreadCards = spreadCardsRef.current.map((spreadCard) =>
             spreadCard.id === id &&
             areStringArraysEqual(spreadCard.labels || [], nextLabels)
               ? { ...spreadCard, labels: previousLabels }
               : spreadCard,
-          ),
         );
+        spreadCardsRef.current = revertedSpreadCards;
+        setSpreadCards(revertedSpreadCards);
+        persistWorkingCanvasState({ spreadCards: revertedSpreadCards });
         console.error("Update labels failed:", error);
         toast.error("Failed to save labels");
       });
     },
-    [setSpreadCards, workingCanvasId],
+    [persistWorkingCanvasState, setSpreadCards, workingCanvasId],
   );
 
   const handleUpdateCardState = useCallback(
@@ -2102,11 +2488,12 @@ export default function CardDrawingView({
         previousUpdates.polarity = card.polarity ?? null;
       }
 
-      setSpreadCards((prev) =>
-        prev.map((spreadCard) =>
-          spreadCard.id === id ? { ...spreadCard, ...updates } : spreadCard,
-        ),
+      const nextSpreadCards = spreadCardsRef.current.map((spreadCard) =>
+        spreadCard.id === id ? { ...spreadCard, ...updates } : spreadCard,
       );
+      spreadCardsRef.current = nextSpreadCards;
+      setSpreadCards(nextSpreadCards);
+      persistWorkingCanvasState({ spreadCards: nextSpreadCards });
 
       if (!db) return;
 
@@ -2114,21 +2501,22 @@ export default function CardDrawingView({
         ...updates,
         updatedAt: new Date().toISOString(),
       }).catch((error) => {
-        setSpreadCards((prev) =>
-          prev.map((spreadCard) => {
+        const revertedSpreadCards = spreadCardsRef.current.map((spreadCard) => {
             const stillAtOptimisticState = Object.entries(updates).every(
               ([key, value]) => spreadCard[key as keyof SpreadCard] === value,
             );
             return spreadCard.id === id && stillAtOptimisticState
               ? { ...spreadCard, ...previousUpdates }
               : spreadCard;
-          }),
-        );
+          });
+        spreadCardsRef.current = revertedSpreadCards;
+        setSpreadCards(revertedSpreadCards);
+        persistWorkingCanvasState({ spreadCards: revertedSpreadCards });
         console.error("Update card state failed:", error);
         toast.error("Failed to save card state");
       });
     },
-    [setSpreadCards, workingCanvasId],
+    [persistWorkingCanvasState, setSpreadCards, workingCanvasId],
   );
 
   const handleShuffle = async () => {
@@ -2145,7 +2533,9 @@ export default function CardDrawingView({
       if (error) throw error;
 
       const result = (data || {}) as ShuffleRpcResult;
-      if (!applyDeckRpcResult(deckType, result, activeCards)) {
+      if (applyDeckRpcResult(deckType, result, activeCards)) {
+        persistWorkingCanvasState();
+      } else {
         await refreshDeckStateFromDb(deckType, activeCards);
       }
     } catch (err) {
@@ -2165,28 +2555,28 @@ export default function CardDrawingView({
     }
     if (newCount === deckCount) return;
 
-    const previousDeckStates = deckStates;
+    const previousDeckStates = deckStatesRef.current;
     const nextDeckCount = Math.max(1, Math.min(newCount, 10));
-    setDeckStates((prev) => {
-      const targetState = prev[deckType];
-      const nextRandomDecks =
-        nextDeckCount > deckCount
-          ? [
-              ...targetState.randomDecks,
-              ...Array.from({ length: nextDeckCount - deckCount }, () => [
-                ...activeCards,
-              ]),
-            ]
-          : targetState.randomDecks.slice(0, nextDeckCount);
-
-      return {
-        ...prev,
-        [deckType]: {
-          deckCount: nextDeckCount,
-          randomDecks: nextRandomDecks,
-        },
-      };
-    });
+    const targetState = previousDeckStates[deckType];
+    const nextRandomDecks =
+      nextDeckCount > deckCount
+        ? [
+            ...targetState.randomDecks,
+            ...Array.from({ length: nextDeckCount - deckCount }, () => [
+              ...activeCards,
+            ]),
+          ]
+        : targetState.randomDecks.slice(0, nextDeckCount);
+    const nextDeckStates = {
+      ...previousDeckStates,
+      [deckType]: {
+        deckCount: nextDeckCount,
+        randomDecks: nextRandomDecks,
+      },
+    };
+    deckStatesRef.current = nextDeckStates;
+    setDeckStates(nextDeckStates);
+    persistWorkingCanvasState({ deckStates: nextDeckStates });
 
     try {
       const { data, error } = await supabase.rpc("set_random_deck_count", {
@@ -2196,11 +2586,15 @@ export default function CardDrawingView({
       });
       if (error) throw error;
 
-      if (!applyDeckRpcResult(deckType, data, activeCards)) {
+      if (applyDeckRpcResult(deckType, data, activeCards)) {
+        persistWorkingCanvasState();
+      } else {
         await refreshDeckStateFromDb(deckType, activeCards);
       }
     } catch (err) {
+      deckStatesRef.current = previousDeckStates;
       setDeckStates(previousDeckStates);
+      persistWorkingCanvasState({ deckStates: previousDeckStates });
       console.error("Update deck count failed:", err);
       toast.error("Failed to change deck count");
     }
