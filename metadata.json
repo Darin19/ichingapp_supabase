@@ -1,0 +1,6 @@
+{
+  "name": "iChing Deck Builder & Reader",
+  "description": "A desktop-first web app for managing iChing master data, label groups, and drawing cards onto a spread area with real-time persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

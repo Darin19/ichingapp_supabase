@@ -1,0 +1,8 @@
+{
+  "cSpell.enabled": false,
+  "css.lint.unknownAtRules": "ignore",
+  "deno.enablePaths": ["./supabase/functions"],
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+  "typescript.tsdk": "node_modules/typescript/lib"
+}
