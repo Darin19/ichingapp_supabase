@@ -21,7 +21,7 @@ import type {
 } from "./types";
 import { INITIAL_CARDS, TAROT_CARDS } from "./constants";
 import type { User } from "@supabase/supabase-js";
-import { supabase } from "./supabaseClient";
+import { clearStoredAuthSession, supabase } from "./supabaseClient";
 import { LogOut } from "lucide-react";
 import {
   db,
@@ -296,6 +296,20 @@ export default function App() {
     }
   }, [fetchMasterDataFromDb, isSyncingMasterData, masterDataScope]);
 
+  const handleSignOut = useCallback(async () => {
+    try {
+      if (supabase) {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error("Sign out failed:", error);
+    } finally {
+      clearStoredAuthSession();
+      setUser(null);
+    }
+  }, []);
+
   // Auth Listener
   useEffect(() => {
     if (!supabase) {
@@ -559,7 +573,7 @@ export default function App() {
               variant="outline"
               className="h-10 rounded-xl border-[#e2e8f0] bg-white px-4 text-sm font-bold text-[#334155] hover:bg-[#f8fafc]"
               onClick={() => {
-                void supabase?.auth.signOut();
+                void handleSignOut();
               }}
             >
               <LogOut className="h-4 w-4" />
