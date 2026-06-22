@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useState,
   useEffect,
   useCallback,
@@ -58,7 +60,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { User } from "@supabase/supabase-js";
 import { TAROT_CARDS } from "../constants";
-import ReactMarkdown from "react-markdown";
 import {
   generateCanvasFromScenario,
   type AutoDrawCardResult,
@@ -68,6 +69,8 @@ import {
   createMasterDataVersion,
   writeMasterDataMarker,
 } from "../lib/masterDataCache";
+
+const CanvasNoteEditor = lazy(() => import("./CanvasNoteEditor"));
 
 interface CardDrawingViewProps {
   cards: IChingCard[];
@@ -977,6 +980,7 @@ export default function CardDrawingView({
   const [showAutoDrawDialog, setShowAutoDrawDialog] = useState(false);
   const [isAutoDrawing, setIsAutoDrawing] = useState(false);
   const [isNotePanelOpen, setIsNotePanelOpen] = useState(false);
+  const [isNoteEditing, setIsNoteEditing] = useState(false);
   const [canvasNoteDraft, setCanvasNoteDraft] = useState("");
   const isCanvasNoteDirtyRef = useRef(false);
   const canvasNoteDraftRef = useRef(canvasNoteDraft);
@@ -1437,6 +1441,7 @@ export default function CardDrawingView({
         const previousSpreadCards = spreadCardsRef.current;
         const previousWorkingCanvasMeta = workingCanvasMetaRef.current;
         const previousCanvasNoteDraft = canvasNoteDraftRef.current;
+        const previousIsNoteEditing = isNoteEditing;
         const endCanvasMutation = beginCanvasMutation();
         try {
           pendingPositionByCardIdRef.current = {};
@@ -1445,6 +1450,7 @@ export default function CardDrawingView({
           setSpreadCards(loadedSpreadCards);
           setWorkingCanvasMeta(loadedMetadata);
           setCanvasNoteDraft(loadedMetadata.noteMarkdown || "");
+          setIsNoteEditing(false);
           persistWorkingCanvasState({
             spreadCards: loadedSpreadCards,
             workingCanvasMeta: loadedMetadata,
@@ -1467,6 +1473,7 @@ export default function CardDrawingView({
           setSpreadCards(previousSpreadCards);
           setWorkingCanvasMeta(previousWorkingCanvasMeta);
           setCanvasNoteDraft(previousCanvasNoteDraft);
+          setIsNoteEditing(previousIsNoteEditing);
           persistWorkingCanvasState({
             spreadCards: previousSpreadCards,
             workingCanvasMeta: previousWorkingCanvasMeta,
@@ -1485,7 +1492,13 @@ export default function CardDrawingView({
       };
       executeLoad();
     }
-  }, [beginCanvasMutation, loadCanvas, persistWorkingCanvasState, setSpreadCards]);
+  }, [
+    beginCanvasMutation,
+    isNoteEditing,
+    loadCanvas,
+    persistWorkingCanvasState,
+    setSpreadCards,
+  ]);
 
   const handleReset = () => {
     setShowResetConfirm(true);
@@ -1546,6 +1559,7 @@ export default function CardDrawingView({
         cardCount: spreadCards.length,
       });
       isCanvasNoteDirtyRef.current = false;
+      setIsNoteEditing(false);
       toast.success("Canvas note saved");
     } catch (error) {
       console.error("Save canvas note failed:", error);
@@ -1553,6 +1567,28 @@ export default function CardDrawingView({
     } finally {
       setIsSavingNote(false);
     }
+  };
+
+  const handleCanvasNoteChange = useCallback((nextMarkdown: string) => {
+    isCanvasNoteDirtyRef.current = true;
+    setCanvasNoteDraft(nextMarkdown);
+  }, []);
+
+  const handleNotePrimaryAction = () => {
+    if (isNoteEditing) {
+      void handleSaveCanvasNote();
+      return;
+    }
+
+    setIsNoteEditing(true);
+  };
+
+  const handleToggleNotePanel = () => {
+    const willOpen = !isNotePanelOpen;
+    if (willOpen) {
+      setIsNoteEditing(!canvasNoteDraftRef.current.trim());
+    }
+    setIsNotePanelOpen(willOpen);
   };
 
   const executeReset = async () => {
@@ -1567,6 +1603,7 @@ export default function CardDrawingView({
     const previousCanvasViewport = canvasViewport;
     const previousWorkingCanvasMeta = workingCanvasMeta;
     const previousCanvasNoteDraft = canvasNoteDraft;
+    const previousIsNoteEditing = isNoteEditing;
     const endCanvasMutation = beginCanvasMutation();
     let didClearCanvasInDb = false;
 
@@ -1591,6 +1628,7 @@ export default function CardDrawingView({
     isCanvasNoteDirtyRef.current = false;
     setCanvasNoteDraft("");
     setWorkingCanvasMeta(resetMetadata);
+    setIsNoteEditing(true);
     spreadCardsRef.current = [];
     deckStatesRef.current = resetDeckStates;
     persistWorkingCanvasState({
@@ -1623,6 +1661,7 @@ export default function CardDrawingView({
         setWorkingCanvasMeta(previousWorkingCanvasMeta);
         isCanvasNoteDirtyRef.current = false;
         setCanvasNoteDraft(previousCanvasNoteDraft);
+        setIsNoteEditing(previousIsNoteEditing);
         spreadCardsRef.current = previousSpreadCards;
         deckStatesRef.current = previousDeckStates;
         persistWorkingCanvasState({
@@ -1709,6 +1748,7 @@ export default function CardDrawingView({
     const previousLabelGroups = labelGroups;
     const previousWorkingCanvasMeta = workingCanvasMeta;
     const previousCanvasNoteDraft = canvasNoteDraft;
+    const previousIsNoteEditing = isNoteEditing;
     let endCanvasMutation: (() => void) | null = null;
 
     setIsAutoDrawing(true);
@@ -1780,6 +1820,7 @@ export default function CardDrawingView({
       setWorkingCanvasMeta(nextMetadata);
       isCanvasNoteDirtyRef.current = false;
       setCanvasNoteDraft(plan.noteMarkdown);
+      setIsNoteEditing(false);
       persistWorkingCanvasState({
         spreadCards: plan.spreadCards,
         workingCanvasMeta: nextMetadata,
@@ -1800,6 +1841,7 @@ export default function CardDrawingView({
       setWorkingCanvasMeta(previousWorkingCanvasMeta);
       isCanvasNoteDirtyRef.current = false;
       setCanvasNoteDraft(previousCanvasNoteDraft);
+      setIsNoteEditing(previousIsNoteEditing);
       persistWorkingCanvasState({
         spreadCards: previousSpreadCards,
         workingCanvasMeta: previousWorkingCanvasMeta,
@@ -2623,7 +2665,7 @@ export default function CardDrawingView({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setIsNotePanelOpen((open) => !open)}
+          onClick={handleToggleNotePanel}
           className="bg-white/90 backdrop-blur-md border-[#e2e8f0] rounded-xl shadow-lg shadow-black/5 font-bold text-xs uppercase tracking-wider gap-2 h-10 px-4 hover:bg-[#166db0] hover:text-white hover:border-[#166db0] transition-all"
         >
           <FileText className="w-4 h-4" />
@@ -2742,26 +2784,21 @@ export default function CardDrawingView({
           )}
 
           {isNotePanelOpen && (
-            <section className="absolute right-5 top-20 bottom-5 z-40 flex w-[min(460px,calc(100%-2.5rem))] flex-col overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white/95 shadow-2xl shadow-black/20 backdrop-blur-md">
+            <section className="absolute right-5 top-20 bottom-5 z-40 flex w-[min(690px,calc(100%-2.5rem))] flex-col overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white/95 shadow-2xl shadow-black/20 backdrop-blur-md">
               <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#e2e8f0] px-4">
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-extrabold uppercase tracking-wider text-[#0f172a]">
                     Canvas Note
                   </h3>
-                  <p className="truncate text-[11px] font-bold uppercase tracking-widest text-[#94a3b8]">
-                    {workingCanvasMeta.source === "auto-draw"
-                      ? "Auto-Draw markdown"
-                      : "Manual canvas markdown"}
-                  </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
                     size="sm"
-                    onClick={() => void handleSaveCanvasNote()}
+                    onClick={handleNotePrimaryAction}
                     disabled={isSavingNote}
                     className="h-8 rounded-xl bg-[#166db0] px-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-[#0e4a77]"
                   >
-                    {isSavingNote ? "Saving" : "Save"}
+                    {isSavingNote ? "Saving" : isNoteEditing ? "Save" : "Edit"}
                   </Button>
                   <Button
                     variant="ghost"
@@ -2773,25 +2810,20 @@ export default function CardDrawingView({
                   </Button>
                 </div>
               </header>
-              <div className="grid min-h-0 flex-1 grid-rows-[1fr_1fr]">
-                <textarea
-                  value={canvasNoteDraft}
-                  onChange={(event) => {
-                    isCanvasNoteDirtyRef.current = true;
-                    setCanvasNoteDraft(event.target.value);
-                  }}
-                  placeholder="Write canvas notes in Markdown..."
-                  className="min-h-0 resize-none border-0 border-b border-[#e2e8f0] bg-[#f8f9fa] p-4 text-sm leading-6 text-[#0f172a] outline-none"
-                />
-                <ScrollArea className="min-h-0 bg-white p-4">
-                  <div className="space-y-3 pr-3 text-sm leading-6 text-[#334155] [&_h1]:text-xl [&_h1]:font-extrabold [&_h2]:text-base [&_h2]:font-extrabold [&_h3]:font-bold [&_li]:ml-5 [&_li]:list-disc [&_p]:mb-2 [&_strong]:font-extrabold">
-                    {canvasNoteDraft.trim() ? (
-                      <ReactMarkdown>{canvasNoteDraft}</ReactMarkdown>
-                    ) : (
-                      <p className="text-[#94a3b8]">No note yet.</p>
-                    )}
-                  </div>
-                </ScrollArea>
+              <div className="min-h-0 flex-1 bg-white p-3">
+                <Suspense
+                  fallback={
+                    <div className="flex h-full items-center justify-center rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-xs font-bold uppercase tracking-widest text-[#64748b]">
+                      Loading editor
+                    </div>
+                  }
+                >
+                  <CanvasNoteEditor
+                    markdown={canvasNoteDraft}
+                    readOnly={!isNoteEditing || isSavingNote}
+                    onChange={handleCanvasNoteChange}
+                  />
+                </Suspense>
               </div>
             </section>
           )}
