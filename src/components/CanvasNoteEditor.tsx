@@ -42,21 +42,20 @@ export default function CanvasNoteEditor({
       linkDialogPlugin(),
       markdownShortcutPlugin(),
       toolbarPlugin({
-        toolbarContents: () =>
-          readOnly ? null : (
-            <>
-              <UndoRedo />
-              <Separator />
-              <BlockTypeSelect />
-              <Separator />
-              <BoldItalicUnderlineToggles />
-              <CodeToggle />
-              <Separator />
-              <ListsToggle options={["bullet", "number"]} />
-              <Separator />
-              <CreateLink />
-            </>
-          ),
+        toolbarContents: () => (
+          <>
+            <UndoRedo />
+            <Separator />
+            <BlockTypeSelect />
+            <Separator />
+            <BoldItalicUnderlineToggles />
+            <CodeToggle />
+            <Separator />
+            <ListsToggle options={["bullet", "number"]} />
+            <Separator />
+            <CreateLink />
+          </>
+        ),
       }),
     ],
     [readOnly],

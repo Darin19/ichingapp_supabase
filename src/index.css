@@ -62,13 +62,17 @@
   scrollbar-width: thin;
 }
 
-.canvas-note-editor {
+.mdxeditor.canvas-note-editor {
   height: 100%;
   overflow: hidden;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #ffffff;
   color: #0f172a;
+}
+
+.canvas-note-editor.mdxeditor-popup-container {
+  z-index: 60;
 }
 
 .canvas-note-editor .mdxeditor-toolbar {
@@ -155,7 +159,7 @@
   text-decoration: underline;
 }
 
-.canvas-note-editor-readonly {
+.mdxeditor.canvas-note-editor-readonly {
   background: #f8fafc;
 }
 
