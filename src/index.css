@@ -63,6 +63,8 @@
 }
 
 .mdxeditor.canvas-note-editor {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   overflow: hidden;
   border: 1px solid #e2e8f0;
@@ -76,10 +78,17 @@
 }
 
 .canvas-note-editor .mdxeditor-toolbar {
+  flex-shrink: 0;
   gap: 4px;
   border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
   padding: 6px 8px;
+}
+
+.canvas-note-editor .mdxeditor-root-contenteditable {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .canvas-note-editor .mdxeditor-toolbar button,
@@ -89,7 +98,7 @@
 
 .canvas-note-editor-content {
   min-height: 100%;
-  overflow-y: auto;
+  overflow-y: visible;
   padding: 16px;
   font-size: 14px;
   line-height: 1.65;
