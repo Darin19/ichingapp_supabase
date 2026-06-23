@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { SavedCanvas, DeckCard, Label, SpreadCard } from "../types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,39 @@ interface SavedCanvasesViewProps {
   onOpenCanvas: (canvas: SavedCanvas) => void;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const getCanvasLocalLabels = (canvas: SavedCanvas | null): Label[] => {
+  const metadata = canvas?.canvasFileMetadata;
+  const customLabels =
+    isRecord(metadata) && Array.isArray(metadata.customLabels)
+      ? metadata.customLabels
+      : [];
+
+  return customLabels.flatMap((label, index) => {
+    if (!isRecord(label) || label.source !== "custom") return [];
+    const group = label.group;
+    if (
+      typeof label.id !== "string" ||
+      typeof label.name !== "string" ||
+      !isRecord(group) ||
+      typeof group.id !== "string"
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        id: label.id,
+        name: label.name,
+        groupId: group.id,
+        sortOrder: index,
+      },
+    ];
+  });
+};
+
 export default function SavedCanvasesView({
   savedCanvases,
   setSavedCanvases,
@@ -60,6 +93,13 @@ export default function SavedCanvasesView({
   const [viewingCanvas, setViewingCanvas] = useState<SavedCanvas | null>(null);
   const [viewingCards, setViewingCards] = useState<SpreadCard[]>([]);
   const [isLoadingCards, setIsLoadingCards] = useState(false);
+  const effectiveLabels = useMemo(() => {
+    const labelMap = new Map(labels.map((label) => [label.id, label]));
+    getCanvasLocalLabels(viewingCanvas).forEach((label) => {
+      if (!labelMap.has(label.id)) labelMap.set(label.id, label);
+    });
+    return [...labelMap.values()];
+  }, [labels, viewingCanvas]);
 
   const loadCanvasCards = async (canvas: SavedCanvas) => {
     if (db) {
@@ -166,7 +206,14 @@ export default function SavedCanvasesView({
 
   const handleRename = async () => {
     if (!editingCanvas || !newName.trim()) return;
-    const updated = { ...editingCanvas, name: newName.trim() };
+    const trimmedName = newName.trim();
+    const updated = {
+      ...editingCanvas,
+      name: trimmedName,
+      canvasFileMetadata: isRecord(editingCanvas.canvasFileMetadata)
+        ? { ...editingCanvas.canvasFileMetadata, name: trimmedName }
+        : editingCanvas.canvasFileMetadata,
+    };
     setEditingCanvas(null);
 
     if (!db) {
@@ -181,11 +228,7 @@ export default function SavedCanvasesView({
       });
       toast.success("Canvas renamed in Supabase");
     } catch (error) {
-      handleSupabaseError(
-        error,
-        OperationType.WRITE,
-        `canvases/${updated.id}`,
-      );
+      handleSupabaseError(error, OperationType.WRITE, `canvases/${updated.id}`);
     }
   };
 
@@ -193,7 +236,7 @@ export default function SavedCanvasesView({
     return cardsList.map((sc) => {
       const card = cards.find((c) => c.id === sc.cardId);
       const cardLabels = sc.labels
-        .map((lId) => labels.find((l) => l.id === lId)?.name)
+        .map((lId) => effectiveLabels.find((l) => l.id === lId)?.name)
         .filter(Boolean);
       const cardType = card?.deckType || sc.deckType || "iching";
       return {

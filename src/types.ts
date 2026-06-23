@@ -1,6 +1,6 @@
 export type DeckType = "iching" | "tarot";
 export type IChingPolarity = "positive" | "negative" | null;
-export type CanvasSource = "manual" | "auto-draw";
+export type CanvasSource = "manual" | "imported" | "auto-draw";
 
 export interface DeckCard {
   id: string;
@@ -79,6 +79,7 @@ export interface SpreadCard {
 export type DeckMode = "random" | "order";
 
 export interface CanvasMetadata {
+  name?: string;
   noteMarkdown?: string;
   scenario?: string;
   source?: CanvasSource;
@@ -86,7 +87,9 @@ export interface CanvasMetadata {
   cardCount?: number;
   type?: "working" | "saved";
   status?: string;
+  createdAt?: string;
   updatedAt?: string;
+  canvasFileMetadata?: Record<string, unknown>;
 }
 
 export interface SavedCanvas extends CanvasMetadata {

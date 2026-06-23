@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "import:legacy-master-data": "node scripts/import-legacy-master-data.mjs"
@@ -22,6 +24,8 @@
     "@tailwindcss/vite": "^4.1.14",
     "@use-gesture/react": "^10.3.1",
     "@vitejs/plugin-react": "^5.0.4",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
@@ -50,6 +54,7 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^3.2.6"
   }
 }

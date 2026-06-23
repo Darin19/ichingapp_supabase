@@ -23,7 +23,7 @@ File tối đa 5 MiB. Importer v1 chấp nhận tối đa 500 nodes, 2.000 label
 | Canvas metadata | `CanvasMetadata` và bảng `canvases`                                 | `metadata`                                                                       |
 | Relations       | Chưa hỗ trợ                                                         | Lưu và round-trip trong metadata; v1 chưa render                                 |
 
-Không có chức năng file import/export sẵn trong source hiện tại. Auto-Draw cũ nằm trong `CardDrawingView.tsx`, `src/lib/autoDraw.ts`, Supabase Edge Function `generate-canvas` và RPC `apply_auto_draw_result`.
+Canvas File v1 thay thế runtime Auto-Draw cũ. Dữ liệu lịch sử Auto-Draw vẫn có thể còn trong database để đọc lại, nhưng import/export v1 không gọi AI provider hoặc Edge Function.
 
 ### 2.1 Nguồn master card chuẩn
 
