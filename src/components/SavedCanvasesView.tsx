@@ -33,6 +33,7 @@ import {
 import { handleSupabaseError, OperationType } from "../lib/supabaseErrors";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { formatCardInfoLine, getCardInfoNameParts } from "../lib/cardInfo";
 
 interface SavedCanvasesViewProps {
   savedCanvases: SavedCanvas[];
@@ -239,10 +240,16 @@ export default function SavedCanvasesView({
         .map((lId) => effectiveLabels.find((l) => l.id === lId)?.name)
         .filter(Boolean);
       const cardType = card?.deckType || sc.deckType || "iching";
+      const { primaryName, secondaryName } = getCardInfoNameParts(
+        card?.vietnameseName,
+        card?.englishName,
+      );
       return {
         number: card?.number,
         vnName: card?.vietnameseName,
         enName: card?.englishName,
+        primaryName,
+        secondaryName,
         cardType,
         labels: cardLabels.join(", "),
       };
@@ -252,9 +259,15 @@ export default function SavedCanvasesView({
   const copyInfo = (cardsList: SpreadCard[]) => {
     const info = getCanvasInfo(cardsList);
     const text = info
-      .map(
-        (item, index) =>
-          `${index + 1}. ${item.cardType === "iching" ? "Hexagram" : "Tarot"} ${item.number}: ${item.vnName} (${item.enName})${item.labels ? ` - Energy Field: ${item.labels}` : ""}`,
+      .map((item, index) =>
+        formatCardInfoLine({
+          position: index + 1,
+          deckType: item.cardType,
+          cardNumber: item.number,
+          vietnameseName: item.vnName,
+          englishName: item.enName,
+          labels: item.labels ? [item.labels] : [],
+        }),
       )
       .join("\n");
     navigator.clipboard.writeText(text);
@@ -496,11 +509,13 @@ export default function SavedCanvasesView({
 
                       <div className="min-w-0 pt-px">
                         <h4 className="max-w-full break-words pr-1 text-[14.5px] font-bold leading-[1.35] text-[#0f172a] text-pretty">
-                          {item.vnName} ({item.number})
+                          {item.primaryName} ({item.number})
                         </h4>
-                        <p className="mt-[3px] max-w-full break-words pr-1 text-[12.5px] font-medium leading-[1.45] text-[#495360] text-pretty">
-                          {item.enName}
-                        </p>
+                        {item.secondaryName && (
+                          <p className="mt-[3px] max-w-full break-words pr-1 text-[12.5px] font-medium leading-[1.45] text-[#495360] text-pretty">
+                            {item.secondaryName}
+                          </p>
+                        )}
                       </div>
 
                       {item.labels && (

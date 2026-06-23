@@ -69,6 +69,7 @@ import {
   createMasterDataVersion,
   writeMasterDataMarker,
 } from "../lib/masterDataCache";
+import { formatCardInfoLine, getCardInfoNameParts } from "../lib/cardInfo";
 
 const CanvasNoteEditor = lazy(() => import("./CanvasNoteEditor"));
 
@@ -95,11 +96,6 @@ const getDeckCollectionName = (deckType: DeckType) =>
 
 const getSpreadCardDeckType = (spreadCard?: SpreadCard | null): DeckType =>
   spreadCard?.deckType || "iching";
-
-const getCardLabel = (
-  card?: DeckCard,
-  fallbackDeckType: DeckType = "iching",
-) => ((card?.deckType || fallbackDeckType) === "iching" ? "Hexagram" : "Tarot");
 
 type CanvasOffset = {
   x: number;
@@ -1517,11 +1513,17 @@ export default function CardDrawingView({
     return spreadCards
       .map((sc, index) => {
         const card = allCards.find((c) => c.id === sc.cardId);
-        const cardLabel = getCardLabel(card, getSpreadCardDeckType(sc));
         const cardLabels = sc.labels
           .map((lId) => effectiveLabels.find((l) => l.id === lId)?.name)
           .filter(Boolean);
-        return `${index + 1}. ${cardLabel} ${card?.number}: ${card?.vietnameseName} (${card?.englishName})${cardLabels.length > 0 ? ` - Energy Field: ${cardLabels.join(", ")}` : ""}`;
+        return formatCardInfoLine({
+          position: index + 1,
+          deckType: card?.deckType || getSpreadCardDeckType(sc),
+          cardNumber: card?.number,
+          vietnameseName: card?.vietnameseName,
+          englishName: card?.englishName,
+          labels: cardLabels,
+        });
       })
       .join("\n");
   };
@@ -2544,6 +2546,10 @@ export default function CardDrawingView({
                 const cardLabels = sc.labels
                   .map((lId) => effectiveLabels.find((l) => l.id === lId)?.name)
                   .filter(Boolean);
+                const { primaryName, secondaryName } = getCardInfoNameParts(
+                  card?.vietnameseName,
+                  card?.englishName,
+                );
                 return (
                   <div
                     key={sc.id}
@@ -2555,11 +2561,13 @@ export default function CardDrawingView({
 
                     <div className="min-w-0 pt-px">
                       <h4 className="max-w-full break-words pr-1 text-[14.5px] font-bold leading-[1.35] text-[#0f172a] text-pretty">
-                        {card?.vietnameseName} ({card?.number})
+                        {primaryName} ({card?.number})
                       </h4>
-                      <p className="mt-[3px] max-w-full break-words pr-1 text-[12.5px] font-medium leading-[1.45] text-[#495360] text-pretty">
-                        {card?.englishName}
-                      </p>
+                      {secondaryName && (
+                        <p className="mt-[3px] max-w-full break-words pr-1 text-[12.5px] font-medium leading-[1.45] text-[#495360] text-pretty">
+                          {secondaryName}
+                        </p>
+                      )}
                     </div>
 
                     {cardLabels.length > 0 && (
