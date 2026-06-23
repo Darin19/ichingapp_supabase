@@ -57,11 +57,6 @@
     50px 50px;
 }
 
-.detail-scrollbar {
-  scrollbar-color: #3f3f46 transparent;
-  scrollbar-width: thin;
-}
-
 .mdxeditor.canvas-note-editor {
   display: flex;
   flex-direction: column;

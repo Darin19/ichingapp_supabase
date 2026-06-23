@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useId, useRef, useState, type ChangeEvent } from "react";
 import { Download, FileDown, FileJson, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +56,7 @@ export default function CanvasFileMenu({
   onExport,
   onDownloadSample,
 }: CanvasFileMenuProps) {
+  const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -157,10 +158,16 @@ export default function CanvasFileMenu({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <label htmlFor={fileInputId} className="sr-only">
+        Import canvas JSON file
+      </label>
       <input
+        id={fileInputId}
         ref={fileInputRef}
         type="file"
         accept="application/json,.json"
+        aria-label="Import canvas JSON file"
+        title="Import canvas JSON file"
         className="hidden"
         onChange={handleFileChange}
       />
