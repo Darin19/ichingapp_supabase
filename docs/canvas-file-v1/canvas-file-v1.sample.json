@@ -1,0 +1,528 @@
+{
+  "format": "iching-canvas",
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Chị H phát hiện tiềm năng và chủ động khơi gợi",
+    "description": "Spread 8 quẻ I Ching và 8 lá Tarot dựng từ Kịch bản.docx.",
+    "sourceScript": "Chị H phát hiện tiềm năng của bạn, bị thu hút mạnh và quyết định chủ động khơi gợi, trong khi vẫn giữ giới hạn của môi trường công sở.",
+    "noteMarkdown": "# Sample Canvas File v1\n\nHexagram 44 được đặt `negative` và The Devil được đặt `reversed` để sample phủ đủ các trạng thái schema. Hai điều chỉnh này phục vụ kiểm thử contract, không thay thế diễn giải gốc trong DOCX.",
+    "createdAt": "2026-06-23T00:00:00Z",
+    "updatedAt": "2026-06-23T00:00:00Z"
+  },
+  "labels": [
+    {
+      "id": "2cc6f661-e1d8-4793-9b19-5eacd5d3feb4",
+      "source": "master",
+      "name": "Thành tựu",
+      "group": {
+        "id": "96a040cc-1bb7-49e5-9332-9f2d9ae2f731",
+        "name": "Theme"
+      },
+      "description": ""
+    },
+    {
+      "id": "51360a72-b990-455d-a95f-3e5734b74167",
+      "source": "master",
+      "name": "Danh tiếng",
+      "group": {
+        "id": "96a040cc-1bb7-49e5-9332-9f2d9ae2f731",
+        "name": "Theme"
+      },
+      "description": ""
+    },
+    {
+      "id": "8bcc5ec4-ca61-479d-b706-c60f6f774e91",
+      "source": "master",
+      "name": "Sức hấp dẫn",
+      "group": {
+        "id": "96a040cc-1bb7-49e5-9332-9f2d9ae2f731",
+        "name": "Theme"
+      },
+      "description": ""
+    },
+    {
+      "id": "a85c820f-eb17-4ca5-96a1-7ae8f8492e87",
+      "source": "master",
+      "name": "Sự nghiệp",
+      "group": {
+        "id": "96a040cc-1bb7-49e5-9332-9f2d9ae2f731",
+        "name": "Theme"
+      },
+      "description": ""
+    },
+    {
+      "id": "868498b4-765d-4187-bf8c-5141bb7194d2",
+      "source": "master",
+      "name": "Venus",
+      "group": {
+        "id": "f29e7474-ac24-4657-9599-a6c31ec46c94",
+        "name": "Planet"
+      },
+      "description": ""
+    },
+    {
+      "id": "c4df1cbb-2a91-42b4-8d57-e215c368fb10",
+      "source": "master",
+      "name": "Mercury",
+      "group": {
+        "id": "f29e7474-ac24-4657-9599-a6c31ec46c94",
+        "name": "Planet"
+      },
+      "description": ""
+    },
+    {
+      "id": "7f122540-603e-404b-be39-aec26a58c89c",
+      "source": "master",
+      "name": "Pluto",
+      "group": {
+        "id": "f29e7474-ac24-4657-9599-a6c31ec46c94",
+        "name": "Planet"
+      },
+      "description": ""
+    },
+    {
+      "id": "46c61bc8-7a8c-4c81-905a-481b6197e2db",
+      "source": "master",
+      "name": "Mars",
+      "group": {
+        "id": "f29e7474-ac24-4657-9599-a6c31ec46c94",
+        "name": "Planet"
+      },
+      "description": ""
+    },
+    {
+      "id": "0933432c-aea9-4515-b3b8-33d340e6d26b",
+      "source": "master",
+      "name": "Saturn",
+      "group": {
+        "id": "f29e7474-ac24-4657-9599-a6c31ec46c94",
+        "name": "Planet"
+      },
+      "description": ""
+    },
+    {
+      "id": "8273235b-77a2-45ec-a3fb-23182ed40dd1",
+      "source": "master",
+      "name": "Descendant",
+      "group": {
+        "id": "f29e7474-ac24-4657-9599-a6c31ec46c94",
+        "name": "Planet"
+      },
+      "description": ""
+    },
+    {
+      "id": "79200019-81af-4eb6-a44f-a7d87f6cec66",
+      "source": "master",
+      "name": "7th House",
+      "group": {
+        "id": "b784f970-23ad-4498-ac77-aa1e6a1908d2",
+        "name": "House"
+      },
+      "description": ""
+    },
+    {
+      "id": "6e1e28b8-9b8b-466e-8d20-5edd655bec37",
+      "source": "master",
+      "name": "Regulus (29°50' Leo)",
+      "group": {
+        "id": "e0b74767-e53b-46ac-bf56-87a4e9f54994",
+        "name": "Star"
+      },
+      "description": ""
+    },
+    {
+      "id": "0c5b52ca-d089-4db7-b41f-eb084cad798a",
+      "source": "master",
+      "name": "Talent (talent & muse)",
+      "group": {
+        "id": "71bd4bd9-e033-48ee-b79f-b287a13d8f32",
+        "name": "Asteroid"
+      },
+      "description": ""
+    },
+    {
+      "id": "1d577900-1ef1-4de5-8370-0353cb5d7964",
+      "source": "master",
+      "name": "Demon King Lucifer",
+      "group": {
+        "id": "4527d339-4aad-4efb-bbba-800d1efcb4c8",
+        "name": "Lucifer empire"
+      },
+      "description": ""
+    },
+    {
+      "id": "3f6c1db9-158c-4c30-abcb-6d90d5a14ea7",
+      "source": "master",
+      "name": "King Asmodeus",
+      "group": {
+        "id": "743fe3b2-2603-4f94-9421-a07e275ab48f",
+        "name": "Ars Goetia"
+      },
+      "description": ""
+    },
+    {
+      "id": "custom:controlled-pursuit",
+      "source": "custom",
+      "name": "Tấn công có kiểm soát",
+      "group": {
+        "id": "custom-group:narrative",
+        "name": "Narrative"
+      },
+      "description": "Sức hút và chủ động vẫn chịu giới hạn của môi trường công sở."
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node-iching-1",
+      "type": "iching",
+      "cardId": "hexagram-1",
+      "cardNumber": 1,
+      "displayName": "Càn Vi Thiên",
+      "position": {
+        "x": 140,
+        "y": 140
+      },
+      "state": "positive",
+      "order": 1,
+      "labelIds": [
+        "2cc6f661-e1d8-4793-9b19-5eacd5d3feb4",
+        "0c5b52ca-d089-4db7-b41f-eb084cad798a",
+        "6e1e28b8-9b8b-466e-8d20-5edd655bec37"
+      ]
+    },
+    {
+      "id": "node-iching-14",
+      "type": "iching",
+      "cardId": "hexagram-14",
+      "cardNumber": 14,
+      "displayName": "Hỏa Thiên Đại Hữu",
+      "position": {
+        "x": 330,
+        "y": 140
+      },
+      "state": "positive",
+      "order": 2,
+      "labelIds": [
+        "51360a72-b990-455d-a95f-3e5734b74167",
+        "2cc6f661-e1d8-4793-9b19-5eacd5d3feb4"
+      ]
+    },
+    {
+      "id": "node-iching-31",
+      "type": "iching",
+      "cardId": "hexagram-31",
+      "cardNumber": 31,
+      "displayName": "Trạch Sơn Hàm",
+      "position": {
+        "x": 520,
+        "y": 140
+      },
+      "state": "positive",
+      "order": 3,
+      "labelIds": [
+        "8bcc5ec4-ca61-479d-b706-c60f6f774e91",
+        "868498b4-765d-4187-bf8c-5141bb7194d2",
+        "8273235b-77a2-45ec-a3fb-23182ed40dd1"
+      ]
+    },
+    {
+      "id": "node-iching-44",
+      "type": "iching",
+      "cardId": "hexagram-44",
+      "cardNumber": 44,
+      "displayName": "Thiên Phong Cấu",
+      "position": {
+        "x": 710,
+        "y": 140
+      },
+      "state": "negative",
+      "order": 4,
+      "labelIds": [
+        "8bcc5ec4-ca61-479d-b706-c60f6f774e91",
+        "7f122540-603e-404b-be39-aec26a58c89c",
+        "1d577900-1ef1-4de5-8370-0353cb5d7964",
+        "3f6c1db9-158c-4c30-abcb-6d90d5a14ea7"
+      ]
+    },
+    {
+      "id": "node-iching-43",
+      "type": "iching",
+      "cardId": "hexagram-43",
+      "cardNumber": 43,
+      "displayName": "Trạch Thiên Quải",
+      "position": {
+        "x": 900,
+        "y": 140
+      },
+      "state": "positive",
+      "order": 5,
+      "labelIds": [
+        "46c61bc8-7a8c-4c81-905a-481b6197e2db",
+        "custom:controlled-pursuit"
+      ]
+    },
+    {
+      "id": "node-iching-58",
+      "type": "iching",
+      "cardId": "hexagram-58",
+      "cardNumber": 58,
+      "displayName": "Đoài Vi Trạch",
+      "position": {
+        "x": 1090,
+        "y": 140
+      },
+      "state": "positive",
+      "order": 6,
+      "labelIds": [
+        "c4df1cbb-2a91-42b4-8d57-e215c368fb10",
+        "868498b4-765d-4187-bf8c-5141bb7194d2"
+      ]
+    },
+    {
+      "id": "node-iching-17",
+      "type": "iching",
+      "cardId": "hexagram-17",
+      "cardNumber": 17,
+      "displayName": "Trạch Lôi Tùy",
+      "position": {
+        "x": 1280,
+        "y": 140
+      },
+      "state": "neutral",
+      "order": 7,
+      "labelIds": [
+        "8273235b-77a2-45ec-a3fb-23182ed40dd1",
+        "79200019-81af-4eb6-a44f-a7d87f6cec66"
+      ]
+    },
+    {
+      "id": "node-iching-60",
+      "type": "iching",
+      "cardId": "hexagram-60",
+      "cardNumber": 60,
+      "displayName": "Thủy Trạch Tiết",
+      "position": {
+        "x": 1470,
+        "y": 140
+      },
+      "state": "neutral",
+      "order": 8,
+      "labelIds": [
+        "0933432c-aea9-4515-b3b8-33d340e6d26b",
+        "a85c820f-eb17-4ca5-96a1-7ae8f8492e87",
+        "custom:controlled-pursuit"
+      ]
+    },
+    {
+      "id": "node-tarot-magician",
+      "type": "tarot",
+      "cardId": "tarot-rws-tarot-01-magician",
+      "cardNumber": 1,
+      "displayName": "Magician",
+      "position": {
+        "x": 140,
+        "y": 440
+      },
+      "state": "upright",
+      "order": 9,
+      "labelIds": [
+        "c4df1cbb-2a91-42b4-8d57-e215c368fb10",
+        "0c5b52ca-d089-4db7-b41f-eb084cad798a"
+      ]
+    },
+    {
+      "id": "node-tarot-six-wands",
+      "type": "tarot",
+      "cardId": "tarot-wands06",
+      "cardNumber": 27,
+      "displayName": "Six of Wands",
+      "position": {
+        "x": 330,
+        "y": 440
+      },
+      "state": "upright",
+      "order": 10,
+      "labelIds": [
+        "51360a72-b990-455d-a95f-3e5734b74167",
+        "2cc6f661-e1d8-4793-9b19-5eacd5d3feb4",
+        "6e1e28b8-9b8b-466e-8d20-5edd655bec37"
+      ]
+    },
+    {
+      "id": "node-tarot-devil",
+      "type": "tarot",
+      "cardId": "tarot-rws-tarot-15-devil",
+      "cardNumber": 15,
+      "displayName": "Devil",
+      "position": {
+        "x": 520,
+        "y": 440
+      },
+      "state": "reversed",
+      "order": 11,
+      "labelIds": [
+        "8bcc5ec4-ca61-479d-b706-c60f6f774e91",
+        "7f122540-603e-404b-be39-aec26a58c89c",
+        "1d577900-1ef1-4de5-8370-0353cb5d7964",
+        "3f6c1db9-158c-4c30-abcb-6d90d5a14ea7"
+      ]
+    },
+    {
+      "id": "node-tarot-queen-wands",
+      "type": "tarot",
+      "cardId": "tarot-wands13",
+      "cardNumber": 34,
+      "displayName": "Queen of Wands",
+      "position": {
+        "x": 710,
+        "y": 440
+      },
+      "state": "upright",
+      "order": 12,
+      "labelIds": [
+        "868498b4-765d-4187-bf8c-5141bb7194d2",
+        "46c61bc8-7a8c-4c81-905a-481b6197e2db",
+        "8bcc5ec4-ca61-479d-b706-c60f6f774e91"
+      ]
+    },
+    {
+      "id": "node-tarot-page-cups",
+      "type": "tarot",
+      "cardId": "tarot-cups11",
+      "cardNumber": 46,
+      "displayName": "Page of Cups",
+      "position": {
+        "x": 900,
+        "y": 440
+      },
+      "state": "upright",
+      "order": 13,
+      "labelIds": ["868498b4-765d-4187-bf8c-5141bb7194d2"]
+    },
+    {
+      "id": "node-tarot-knight-wands",
+      "type": "tarot",
+      "cardId": "tarot-wands12",
+      "cardNumber": 33,
+      "displayName": "Knight of Wands",
+      "position": {
+        "x": 1090,
+        "y": 440
+      },
+      "state": "upright",
+      "order": 14,
+      "labelIds": [
+        "46c61bc8-7a8c-4c81-905a-481b6197e2db",
+        "custom:controlled-pursuit"
+      ]
+    },
+    {
+      "id": "node-tarot-two-cups",
+      "type": "tarot",
+      "cardId": "tarot-cups02",
+      "cardNumber": 37,
+      "displayName": "Two of Cups",
+      "position": {
+        "x": 1280,
+        "y": 440
+      },
+      "state": "upright",
+      "order": 15,
+      "labelIds": [
+        "8273235b-77a2-45ec-a3fb-23182ed40dd1",
+        "79200019-81af-4eb6-a44f-a7d87f6cec66"
+      ]
+    },
+    {
+      "id": "node-tarot-temperance",
+      "type": "tarot",
+      "cardId": "tarot-rws-tarot-14-temperance",
+      "cardNumber": 14,
+      "displayName": "Temperance",
+      "position": {
+        "x": 1470,
+        "y": 440
+      },
+      "state": "upright",
+      "order": 16,
+      "labelIds": [
+        "0933432c-aea9-4515-b3b8-33d340e6d26b",
+        "a85c820f-eb17-4ca5-96a1-7ae8f8492e87",
+        "custom:controlled-pursuit"
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-magician-hexagram-1",
+      "type": "clarifies",
+      "from": "node-tarot-magician",
+      "to": "node-iching-1",
+      "label": "The Magician clarifies the discovered creative potential of Càn."
+    },
+    {
+      "id": "rel-six-wands-hexagram-14",
+      "type": "supports",
+      "from": "node-tarot-six-wands",
+      "to": "node-iching-14",
+      "label": "Recognition and visible value support Đại Hữu."
+    },
+    {
+      "id": "rel-devil-hexagram-31",
+      "type": "clarifies",
+      "from": "node-tarot-devil",
+      "to": "node-iching-31",
+      "label": "The Devil clarifies the instinctive attraction represented by Hàm."
+    },
+    {
+      "id": "rel-devil-hexagram-44",
+      "type": "contrasts",
+      "from": "node-tarot-devil",
+      "to": "node-iching-44",
+      "label": "The reversed Devil contrasts with the uncontrolled pull of Cấu."
+    },
+    {
+      "id": "rel-queen-wands-hexagram-43",
+      "type": "supports",
+      "from": "node-tarot-queen-wands",
+      "to": "node-iching-43",
+      "label": "Queen of Wands supports the decision to act."
+    },
+    {
+      "id": "rel-page-cups-hexagram-58",
+      "type": "clarifies",
+      "from": "node-tarot-page-cups",
+      "to": "node-iching-58",
+      "label": "Page of Cups clarifies the soft verbal opening of Đoài."
+    },
+    {
+      "id": "rel-two-cups-hexagram-17",
+      "type": "supports",
+      "from": "node-tarot-two-cups",
+      "to": "node-iching-17",
+      "label": "Two of Cups supports the mutual rhythm of Tùy."
+    },
+    {
+      "id": "rel-temperance-hexagram-60",
+      "type": "clarifies",
+      "from": "node-tarot-temperance",
+      "to": "node-iching-60",
+      "label": "Temperance clarifies the workplace boundaries of Tiết."
+    },
+    {
+      "id": "rel-queen-knight-wands",
+      "type": "follows",
+      "from": "node-tarot-queen-wands",
+      "to": "node-tarot-knight-wands",
+      "label": "Confident initiative develops into faster action."
+    },
+    {
+      "id": "rel-attraction-core",
+      "type": "groups-with",
+      "from": "node-iching-31",
+      "to": "node-tarot-devil",
+      "label": "Core attraction cluster."
+    }
+  ],
+  "extensions": {}
+}
