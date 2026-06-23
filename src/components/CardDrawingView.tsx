@@ -24,16 +24,9 @@ import SpreadCanvas from "./SpreadCanvas";
 import DeckArea from "./DeckArea";
 import CardDetailPopup from "./CardDetailPopup";
 import BulkLabelPanel from "./BulkLabelPanel";
+import CanvasFileMenu from "./CanvasFileMenu";
 import { Button } from "@/components/ui/button";
-import {
-  RefreshCw,
-  Info,
-  Save,
-  Copy,
-  Tag,
-  WandSparkles,
-  FileText,
-} from "lucide-react";
+import { RefreshCw, Info, Save, Copy, Tag, FileText } from "lucide-react";
 import { toast } from "sonner";
 import {
   db,
@@ -61,10 +54,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { User } from "@supabase/supabase-js";
 import { TAROT_CARDS } from "../constants";
 import {
-  generateCanvasFromScenario,
-  type AutoDrawCardResult,
-  type AutoDrawResponse,
-} from "../lib/autoDraw";
+  CANVAS_FILE_V1_SAMPLE_TEXT,
+  createCanvasExportFilename,
+  createCanvasFile,
+  createFileMetadataFromStored,
+  createStoredMetadata,
+  formatCanvasFileError,
+  serializeCanvasFile,
+  type CanvasFileCustomLabel,
+  type CanvasFileStoredMetadata,
+  type ImportPlan,
+} from "../features/canvas-file";
 import {
   createMasterDataVersion,
   writeMasterDataMarker,
@@ -152,16 +152,15 @@ type RpcDeckSnapshot = {
 type DrawCardRpcResult = SpreadCard;
 
 const CANVAS_VIEWPORT_STORAGE_KEY = "iching-card-drawing-viewport";
-const WORKING_CANVAS_STATE_STORAGE_KEY =
-  "iching-card-drawing-working-state-v1";
+const WORKING_CANVAS_STATE_STORAGE_KEY = "iching-card-drawing-working-state-v1";
 const RECENT_LOCAL_STATE_MAX_AGE_MS = 30_000;
-const AUTO_DRAW_CARD_LIMIT = 50;
 const DEFAULT_CANVAS_VIEWPORT: CanvasViewport = {
   zoom: 1,
   offset: { x: 0, y: 0 },
 };
 const DEFAULT_BULK_LABEL_PANEL_POSITION = { x: 20, y: 64 };
-const AUTO_DRAW_LABEL_GROUP_NAME = "Auto-Draw";
+const CUSTOM_LABEL_ID_PREFIX = "custom:";
+const CUSTOM_LABEL_GROUP_ID_PREFIX = "custom-group:";
 
 const buildDeckRpcPayload = (cards: DeckCard[]) =>
   cards.map((card, index) => ({
@@ -187,6 +186,84 @@ const buildCanvasCardsRpcPayload = (cards: SpreadCard[]) =>
     position_label: card.positionLabel ?? null,
     match_score: card.matchScore ?? null,
   }));
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isCanvasFileCustomLabel = (
+  value: unknown,
+): value is CanvasFileCustomLabel => {
+  if (!isRecord(value)) return false;
+  if (value.source !== "custom") return false;
+  if (
+    typeof value.id !== "string" ||
+    !value.id.startsWith(CUSTOM_LABEL_ID_PREFIX)
+  ) {
+    return false;
+  }
+  if (typeof value.name !== "string") return false;
+  const group = value.group;
+  return (
+    isRecord(group) &&
+    typeof group.id === "string" &&
+    group.id.startsWith(CUSTOM_LABEL_GROUP_ID_PREFIX) &&
+    typeof group.name === "string"
+  );
+};
+
+const normalizeStoredCanvasFileMetadata = (
+  metadata: CanvasMetadata | undefined,
+): CanvasFileStoredMetadata | undefined => {
+  const raw = metadata?.canvasFileMetadata;
+  if (!isRecord(raw) || raw.schemaVersion !== "1.0.0") return undefined;
+
+  const customLabels = Array.isArray(raw.customLabels)
+    ? raw.customLabels.filter(isCanvasFileCustomLabel)
+    : [];
+  const relations = Array.isArray(raw.relations) ? raw.relations : [];
+  const extensions = isRecord(raw.extensions) ? raw.extensions : {};
+
+  return {
+    schemaVersion: "1.0.0",
+    name: typeof raw.name === "string" ? raw.name : metadata?.name || "",
+    description: typeof raw.description === "string" ? raw.description : "",
+    sourceScript: typeof raw.sourceScript === "string" ? raw.sourceScript : "",
+    createdAt:
+      typeof raw.createdAt === "string"
+        ? raw.createdAt
+        : metadata?.createdAt || new Date().toISOString(),
+    customLabels,
+    relations: relations as CanvasFileStoredMetadata["relations"],
+    extensions,
+  };
+};
+
+const toCanvasFileMetadataRecord = (
+  metadata: CanvasFileStoredMetadata | undefined,
+) =>
+  metadata
+    ? (structuredClone(metadata) as unknown as Record<string, unknown>)
+    : {};
+
+const createSnapshotCanvasFileMetadataRecord = (
+  metadata: CanvasMetadata,
+  name: string,
+) => {
+  const stored = normalizeStoredCanvasFileMetadata(metadata);
+  return toCanvasFileMetadataRecord(stored ? { ...stored, name } : undefined);
+};
+
+const downloadTextFile = (filename: string, text: string) => {
+  const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+};
 
 const createDeckControlState = (
   deckCards: DeckCard[],
@@ -256,7 +333,9 @@ const readStoredWorkingCanvasState = (): StoredWorkingCanvasState | null => {
   if (typeof window === "undefined") return null;
 
   try {
-    const stored = window.localStorage.getItem(WORKING_CANVAS_STATE_STORAGE_KEY);
+    const stored = window.localStorage.getItem(
+      WORKING_CANVAS_STATE_STORAGE_KEY,
+    );
     if (!stored) return null;
     const parsed = JSON.parse(stored);
     if (!parsed || typeof parsed !== "object") return null;
@@ -365,23 +444,6 @@ const returnCardToDeckStates = (
   } satisfies Record<DeckType, DeckControlState>;
 };
 
-const buildLabelGroupRpcPayload = (group: LabelGroup | null) =>
-  group
-    ? {
-        id: group.id,
-        name: group.name,
-        sortOrder: group.sortOrder ?? null,
-      }
-    : null;
-
-const buildLabelsRpcPayload = (labels: Label[]) =>
-  labels.map((label) => ({
-    id: label.id,
-    name: label.name,
-    group_id: label.groupId,
-    sort_order: label.sortOrder ?? null,
-  }));
-
 const clampCanvasZoom = (value: number) => Math.min(Math.max(value, 0.2), 3);
 
 const sanitizeOffset = (offset: CanvasOffset): CanvasOffset => ({
@@ -440,425 +502,6 @@ const isMissingRpcFunctionError = (error: unknown) =>
 const areStringArraysEqual = (left: string[] = [], right: string[] = []) =>
   left.length === right.length &&
   left.every((value, index) => value === right[index]);
-
-type AutoDrawNodeInput = {
-  ref_id: string;
-  x?: number;
-  y?: number;
-  label_ids?: string[];
-  card?: AutoDrawCardResult;
-};
-
-type AutoDrawApplyPlan = {
-  runId: string;
-  spreadCards: SpreadCard[];
-  nextLabels: Label[];
-  nextLabelGroups: LabelGroup[];
-  createdLabels: Label[];
-  createdLabelGroup: LabelGroup | null;
-  noteMarkdown: string;
-};
-
-const normalizeAutoDrawText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLocaleLowerCase();
-
-const toIChingPolarity = (effect?: string): IChingPolarity => {
-  if (effect === "positive" || effect === "negative") return effect;
-  return null;
-};
-
-const getAutoDrawDefaultPosition = (index: number, totalCards: number) => {
-  const columns =
-    totalCards <= 4
-      ? Math.max(1, totalCards)
-      : totalCards <= 12
-        ? 4
-        : totalCards <= 30
-          ? 5
-          : 6;
-
-  return {
-    x: 150 + (index % columns) * 185,
-    y: 150 + Math.floor(index / columns) * 235,
-  };
-};
-
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
-
-const buildAutoDrawNoteMarkdown = (
-  response: AutoDrawResponse,
-  scenario: string,
-  script: string,
-) => {
-  if (script.trim()) return script.trim();
-  if (response.note_markdown?.trim()) return response.note_markdown.trim();
-
-  const lines = ["# Auto-Draw Reading", "", "## Scenario", scenario.trim()];
-
-  if (response.scenario_summary?.trim()) {
-    lines.push("", "## Summary", response.scenario_summary.trim());
-  }
-
-  if (response.themes?.length) {
-    lines.push(
-      "",
-      "## Themes",
-      ...response.themes
-        .filter((theme) => typeof theme === "string" && theme.trim())
-        .map((theme) => `- ${theme.trim()}`),
-    );
-  }
-
-  if (response.cards?.length) {
-    lines.push("", "## Cards");
-    response.cards.forEach((card) => {
-      lines.push(
-        `- ${card.draw_order || ""}. ${card.name || card.card_id}: ${
-          card.reason || "No reason provided."
-        }`,
-      );
-    });
-  }
-
-  return lines.join("\n");
-};
-
-const buildAutoDrawApplyPlan = (
-  response: AutoDrawResponse,
-  allCards: DeckCard[],
-  labels: Label[],
-  labelGroups: LabelGroup[],
-  scenario: string,
-  script: string,
-): AutoDrawApplyPlan => {
-  const cardById = new Map(allCards.map((card) => [card.id, card]));
-  const responseCards = Array.isArray(response.cards) ? response.cards : [];
-  const cardResultById = new Map(
-    responseCards
-      .filter((card) => card?.card_id)
-      .map((card) => [card.card_id, card]),
-  );
-  const canvasNodes = Array.isArray(response.canvas_nodes)
-    ? response.canvas_nodes.filter((node) => node?.type === "card")
-    : [];
-
-  const nodeInputs: AutoDrawNodeInput[] =
-    canvasNodes.length > 0
-      ? canvasNodes.map((node) => ({
-          ref_id: node.ref_id,
-          x: node.x,
-          y: node.y,
-          label_ids: node.label_ids,
-          card: cardResultById.get(node.ref_id),
-        }))
-      : responseCards.map((card) => ({
-          ref_id: card.card_id,
-          card,
-        }));
-
-  if (nodeInputs.length === 0) {
-    throw new Error("Auto-Draw did not return any cards");
-  }
-
-  if (nodeInputs.length > AUTO_DRAW_CARD_LIMIT) {
-    throw new Error(
-      `Auto-Draw returned ${nodeInputs.length} cards, expected at most ${AUTO_DRAW_CARD_LIMIT}`,
-    );
-  }
-
-  const seenNodeCardIds = new Set<string>();
-  const duplicateCardIds = new Set<string>();
-  nodeInputs.forEach((node) => {
-    if (seenNodeCardIds.has(node.ref_id)) duplicateCardIds.add(node.ref_id);
-    seenNodeCardIds.add(node.ref_id);
-  });
-  if (duplicateCardIds.size > 0) {
-    throw new Error(
-      `Auto-Draw returned duplicate card IDs: ${Array.from(duplicateCardIds).join(", ")}`,
-    );
-  }
-
-  const unknownCardIds = nodeInputs
-    .map((node) => node.ref_id)
-    .filter((cardId) => !cardById.has(cardId));
-  if (unknownCardIds.length > 0) {
-    throw new Error(
-      `Auto-Draw returned unknown card IDs: ${unknownCardIds.join(", ")}`,
-    );
-  }
-
-  const mismatchedCardTypes = nodeInputs
-    .filter((node) => {
-      const expectedDeckType = cardById.get(node.ref_id)?.deckType;
-      const returnedDeckType =
-        node.card?.card_type || cardResultById.get(node.ref_id)?.card_type;
-      return (
-        returnedDeckType &&
-        expectedDeckType &&
-        returnedDeckType !== expectedDeckType
-      );
-    })
-    .map((node) => node.ref_id);
-  if (mismatchedCardTypes.length > 0) {
-    throw new Error(
-      `Auto-Draw returned mismatched card types: ${mismatchedCardTypes.join(", ")}`,
-    );
-  }
-
-  const existingLabelById = new Map(labels.map((label) => [label.id, label]));
-  const existingLabelByName = new Map<string, Label>();
-  labels.forEach((label) => {
-    const key = normalizeAutoDrawText(label.name);
-    if (!existingLabelByName.has(key)) existingLabelByName.set(key, label);
-  });
-
-  const existingGroupByName = new Map(
-    labelGroups.map((group) => [normalizeAutoDrawText(group.name), group]),
-  );
-  let autoDrawGroup =
-    existingGroupByName.get(
-      normalizeAutoDrawText(AUTO_DRAW_LABEL_GROUP_NAME),
-    ) || null;
-  let createdLabelGroup: LabelGroup | null = null;
-  const createdLabels: Label[] = [];
-  const labelTokenToId = new Map<string, string>();
-  const labelsToAttachByCardId = new Map<string, Set<string>>();
-
-  const getAutoDrawGroup = () => {
-    if (autoDrawGroup) return autoDrawGroup;
-    createdLabelGroup = {
-      id: crypto.randomUUID(),
-      name: AUTO_DRAW_LABEL_GROUP_NAME,
-      sortOrder: labelGroups.length,
-    };
-    autoDrawGroup = createdLabelGroup;
-    return autoDrawGroup;
-  };
-
-  const rememberLabelToken = (token: string | undefined, labelId: string) => {
-    if (!token?.trim()) return;
-    labelTokenToId.set(token.trim(), labelId);
-    labelTokenToId.set(normalizeAutoDrawText(token), labelId);
-  };
-
-  const resolveOrCreateLabel = (labelResult: {
-    label_id?: string;
-    name?: string;
-  }) => {
-    const existingById = labelResult.label_id
-      ? existingLabelById.get(labelResult.label_id)
-      : undefined;
-    if (existingById) {
-      rememberLabelToken(labelResult.label_id, existingById.id);
-      rememberLabelToken(labelResult.name, existingById.id);
-      return existingById.id;
-    }
-
-    const normalizedName = labelResult.name
-      ? normalizeAutoDrawText(labelResult.name)
-      : "";
-    const existingByName = normalizedName
-      ? existingLabelByName.get(normalizedName)
-      : undefined;
-    if (existingByName) {
-      rememberLabelToken(labelResult.label_id, existingByName.id);
-      rememberLabelToken(labelResult.name, existingByName.id);
-      return existingByName.id;
-    }
-
-    if (!labelResult.name?.trim()) return null;
-
-    const group = getAutoDrawGroup();
-    const labelsInGroupCount =
-      labels.filter((label) => label.groupId === group.id).length +
-      createdLabels.length;
-    const newLabel: Label = {
-      id: crypto.randomUUID(),
-      name: labelResult.name.trim(),
-      groupId: group.id,
-      sortOrder: labelsInGroupCount,
-    };
-    createdLabels.push(newLabel);
-    rememberLabelToken(labelResult.label_id, newLabel.id);
-    rememberLabelToken(labelResult.name, newLabel.id);
-    return newLabel.id;
-  };
-
-  (response.labels || []).forEach((labelResult) => {
-    const labelId = resolveOrCreateLabel(labelResult);
-    if (!labelId) return;
-
-    (labelResult.attach_to_card_ids || []).forEach((cardId) => {
-      if (!cardById.has(cardId)) return;
-      const attached = labelsToAttachByCardId.get(cardId) || new Set<string>();
-      attached.add(labelId);
-      labelsToAttachByCardId.set(cardId, attached);
-    });
-  });
-
-  const resolveLabelToken = (token: string) => {
-    if (existingLabelById.has(token)) return token;
-    return (
-      labelTokenToId.get(token) ||
-      labelTokenToId.get(normalizeAutoDrawText(token))
-    );
-  };
-
-  const spreadCards = nodeInputs.map((node, index) => {
-    const deckCard = cardById.get(node.ref_id)!;
-    const cardResult = node.card || cardResultById.get(node.ref_id);
-    const fallbackPosition = getAutoDrawDefaultPosition(
-      index,
-      nodeInputs.length,
-    );
-    const nodeLabelIds = (node.label_ids || [])
-      .map((labelToken) => resolveLabelToken(labelToken))
-      .filter(Boolean) as string[];
-    const attachedLabelIds = Array.from(
-      labelsToAttachByCardId.get(node.ref_id) || new Set<string>(),
-    );
-    const labelIds = Array.from(
-      new Set([...nodeLabelIds, ...attachedLabelIds]),
-    );
-
-    return {
-      id: crypto.randomUUID(),
-      cardId: node.ref_id,
-      deckType: deckCard.deckType,
-      x: isFiniteNumber(node.x) ? node.x : fallbackPosition.x,
-      y: isFiniteNumber(node.y) ? node.y : fallbackPosition.y,
-      labels: labelIds,
-      isReversed: cardResult?.orientation === "reversed",
-      polarity:
-        deckCard.deckType === "iching"
-          ? toIChingPolarity(cardResult?.effect)
-          : null,
-      drawSequence: cardResult?.draw_order || index + 1,
-      placedSequence: index + 1,
-      autoDrawReason: cardResult?.reason,
-      positionLabel: cardResult?.position,
-      matchScore: isFiniteNumber(cardResult?.match_score)
-        ? cardResult?.match_score
-        : undefined,
-    } satisfies SpreadCard;
-  });
-
-  return {
-    runId: crypto.randomUUID(),
-    spreadCards: spreadCards.sort(
-      (a, b) => (a.drawSequence || 0) - (b.drawSequence || 0),
-    ),
-    nextLabels: [...labels, ...createdLabels],
-    nextLabelGroups: createdLabelGroup
-      ? [...labelGroups, createdLabelGroup]
-      : labelGroups,
-    createdLabels,
-    createdLabelGroup,
-    noteMarkdown: buildAutoDrawNoteMarkdown(response, scenario, script),
-  };
-};
-
-type AutoDrawDialogProps = {
-  open: boolean;
-  isGenerating: boolean;
-  onOpenChange: (open: boolean) => void;
-  onGenerate: (scenario: string, script: string) => Promise<boolean>;
-};
-
-function AutoDrawDialog({
-  open,
-  isGenerating,
-  onOpenChange,
-  onGenerate,
-}: AutoDrawDialogProps) {
-  const [scenarioDraft, setScenarioDraft] = useState("");
-  const [scriptDraft, setScriptDraft] = useState("");
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    void (async () => {
-      const didGenerate = await onGenerate(
-        scenarioDraft.trim(),
-        scriptDraft.trim(),
-      );
-
-      if (didGenerate) {
-        setScenarioDraft("");
-        setScriptDraft("");
-      }
-    })();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(920px,calc(100vw-2rem))] max-w-none p-0 sm:max-w-none">
-        <form
-          onSubmit={handleSubmit}
-          className="flex max-h-[min(760px,calc(100vh-2rem))] min-h-[520px] flex-col"
-        >
-          <DialogHeader className="shrink-0 border-b border-[#e2e8f0] px-6 pt-6 pb-4">
-            <DialogTitle>Auto-draw</DialogTitle>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="auto-draw-scenario"
-                className="text-xs font-extrabold uppercase tracking-wider text-[#495360]"
-              >
-                Scenario
-              </label>
-              <textarea
-                id="auto-draw-scenario"
-                value={scenarioDraft}
-                onChange={(event) => setScenarioDraft(event.target.value)}
-                placeholder="Describe the situation, question, or reading context..."
-                className="min-h-[210px] w-full resize-none rounded-xl border border-[#e2e8f0] bg-white p-4 text-sm leading-6 outline-none focus:border-[#166db0]"
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="auto-draw-script"
-                className="text-xs font-extrabold uppercase tracking-wider text-[#495360]"
-              >
-                SCRIPT
-              </label>
-              <textarea
-                id="auto-draw-script"
-                value={scriptDraft}
-                onChange={(event) => setScriptDraft(event.target.value)}
-                className="min-h-[170px] w-full resize-none rounded-xl border border-[#e2e8f0] bg-white p-4 text-sm leading-6 outline-none focus:border-[#166db0]"
-              />
-            </div>
-          </div>
-          <DialogFooter className="mx-0 mb-0 shrink-0 px-6 py-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isGenerating}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isGenerating}
-              className="bg-[#166db0] text-white hover:bg-[#0e4a77]"
-            >
-              {isGenerating ? "Generating..." : "Generate Canvas"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export default function CardDrawingView({
   cards,
@@ -977,8 +620,6 @@ export default function CardDrawingView({
   const [showInfo, setShowInfo] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [canvasName, setCanvasName] = useState("");
-  const [showAutoDrawDialog, setShowAutoDrawDialog] = useState(false);
-  const [isAutoDrawing, setIsAutoDrawing] = useState(false);
   const [isNotePanelOpen, setIsNotePanelOpen] = useState(false);
   const [isNoteEditing, setIsNoteEditing] = useState(false);
   const [canvasNoteDraft, setCanvasNoteDraft] = useState("");
@@ -993,6 +634,49 @@ export default function CardDrawingView({
   const hasRestoredLocalWorkingStateRef = useRef(false);
   const skipNextWorkingStatePersistRef = useRef(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
+
+  const storedCanvasFileMetadata = useMemo(
+    () => normalizeStoredCanvasFileMetadata(workingCanvasMeta),
+    [workingCanvasMeta],
+  );
+  const customCanvasLabels = useMemo(
+    () => storedCanvasFileMetadata?.customLabels ?? [],
+    [storedCanvasFileMetadata],
+  );
+  const customCanvasLabelGroups = useMemo(() => {
+    const groups = new Map<string, LabelGroup>();
+    customCanvasLabels.forEach((label, index) => {
+      if (!groups.has(label.group.id)) {
+        groups.set(label.group.id, {
+          id: label.group.id,
+          name: label.group.name,
+          sortOrder: labelGroups.length + index,
+        });
+      }
+    });
+    return [...groups.values()];
+  }, [customCanvasLabels, labelGroups.length]);
+  const effectiveLabels = useMemo(() => {
+    const labelMap = new Map(labels.map((label) => [label.id, label]));
+    customCanvasLabels.forEach((label, index) => {
+      if (!labelMap.has(label.id)) {
+        labelMap.set(label.id, {
+          id: label.id,
+          name: label.name,
+          groupId: label.group.id,
+          sortOrder: labels.length + index,
+        });
+      }
+    });
+    return [...labelMap.values()];
+  }, [customCanvasLabels, labels]);
+  const effectiveLabelGroups = useMemo(() => {
+    const groupMap = new Map(labelGroups.map((group) => [group.id, group]));
+    customCanvasLabelGroups.forEach((group) => {
+      if (!groupMap.has(group.id)) groupMap.set(group.id, group);
+    });
+    return [...groupMap.values()];
+  }, [customCanvasLabelGroups, labelGroups]);
 
   const setZoom = useCallback((nextZoom: number) => {
     setCanvasViewport((prev) => ({
@@ -1109,11 +793,11 @@ export default function CardDrawingView({
   }, [workingCanvasMeta]);
 
   useEffect(() => {
-    const existingLabelIds = new Set(labels.map((label) => label.id));
+    const existingLabelIds = new Set(effectiveLabels.map((label) => label.id));
     setBulkSelectedLabelIds((prev) =>
       prev.filter((id) => existingLabelIds.has(id)),
     );
-  }, [labels]);
+  }, [effectiveLabels]);
 
   useEffect(() => {
     if (!user || !hasRestoredLocalWorkingStateRef.current) return;
@@ -1142,12 +826,7 @@ export default function CardDrawingView({
       deckLoadVersionRef.current[targetDeckType] += 1;
 
       setDeckStates((prev) =>
-        removeCardFromDeckStates(
-          prev,
-          targetDeckType,
-          sourceDeckIndex,
-          cardId,
-        ),
+        removeCardFromDeckStates(prev, targetDeckType, sourceDeckIndex, cardId),
       );
     },
     [],
@@ -1254,8 +933,8 @@ export default function CardDrawingView({
       );
       const shouldKeepRecentLocalDeck = Boolean(
         isRecentStoredWorkingCanvasState(storedWorkingCanvasStateRef.current) &&
-          storedDeckState &&
-          countDeckCards(storedDeckState) < countDeckCards(nextDeckState),
+        storedDeckState &&
+        countDeckCards(storedDeckState) < countDeckCards(nextDeckState),
       );
 
       deckLoadVersionRef.current[targetDeckType] += 1;
@@ -1415,7 +1094,10 @@ export default function CardDrawingView({
       // Loading a saved canvas into the working canvas
       const executeLoad = async () => {
         const loadedSpreadCards = loadCanvas.spreadCards || [];
+        const loadedCanvasFileMetadata =
+          normalizeStoredCanvasFileMetadata(loadCanvas);
         const loadedMetadata: CanvasMetadata = {
+          name: loadCanvas.name || "Working Canvas",
           noteMarkdown: loadCanvas.noteMarkdown || "",
           scenario: loadCanvas.scenario || "",
           source: loadCanvas.source || "manual",
@@ -1423,7 +1105,11 @@ export default function CardDrawingView({
           cardCount: loadedSpreadCards.length,
           type: "working",
           status: "active",
+          createdAt: loadCanvas.createdAt,
           updatedAt: new Date().toISOString(),
+          canvasFileMetadata: toCanvasFileMetadataRecord(
+            loadedCanvasFileMetadata,
+          ),
         };
 
         if (!db) {
@@ -1438,12 +1124,17 @@ export default function CardDrawingView({
           return;
         }
 
-        const previousSpreadCards = spreadCardsRef.current;
-        const previousWorkingCanvasMeta = workingCanvasMetaRef.current;
-        const previousCanvasNoteDraft = canvasNoteDraftRef.current;
-        const previousIsNoteEditing = isNoteEditing;
         const endCanvasMutation = beginCanvasMutation();
         try {
+          const { error } = await supabase.rpc("replace_working_canvas_v2", {
+            p_name: loadedMetadata.name || "Working Canvas",
+            p_cards: buildCanvasCardsRpcPayload(loadedSpreadCards),
+            p_note_markdown: loadedMetadata.noteMarkdown || "",
+            p_source: loadedMetadata.source || "manual",
+            p_canvas_file_metadata: loadedMetadata.canvasFileMetadata || {},
+          });
+          if (error) throw error;
+
           pendingPositionByCardIdRef.current = {};
           isCanvasNoteDirtyRef.current = false;
           spreadCardsRef.current = loadedSpreadCards;
@@ -1457,28 +1148,9 @@ export default function CardDrawingView({
             canvasNoteDraft: loadedMetadata.noteMarkdown || "",
           });
 
-          const { error } = await supabase.rpc("replace_working_canvas", {
-            p_cards: buildCanvasCardsRpcPayload(loadedSpreadCards),
-            p_note_markdown: loadedMetadata.noteMarkdown || "",
-            p_scenario: loadedMetadata.scenario || "",
-            p_source: loadedMetadata.source || "manual",
-            p_auto_draw_run_id: loadedMetadata.autoDrawRunId || "",
-          });
-          if (error) throw error;
-
           toast.success("Canvas loaded");
           onClearLoadCanvas?.();
         } catch (error) {
-          spreadCardsRef.current = previousSpreadCards;
-          setSpreadCards(previousSpreadCards);
-          setWorkingCanvasMeta(previousWorkingCanvasMeta);
-          setCanvasNoteDraft(previousCanvasNoteDraft);
-          setIsNoteEditing(previousIsNoteEditing);
-          persistWorkingCanvasState({
-            spreadCards: previousSpreadCards,
-            workingCanvasMeta: previousWorkingCanvasMeta,
-            canvasNoteDraft: previousCanvasNoteDraft,
-          });
           console.error("Load canvas failed:", error);
           toast.error(
             isPermissionDeniedError(error)
@@ -1494,8 +1166,8 @@ export default function CardDrawingView({
     }
   }, [
     beginCanvasMutation,
-    isNoteEditing,
     loadCanvas,
+    onClearLoadCanvas,
     persistWorkingCanvasState,
     setSpreadCards,
   ]);
@@ -1619,6 +1291,7 @@ export default function CardDrawingView({
       cardCount: 0,
       type: "working",
       status: "active",
+      canvasFileMetadata: {},
     };
 
     setSpreadCards([]);
@@ -1700,14 +1373,16 @@ export default function CardDrawingView({
       }
 
       const canvasId = crypto.randomUUID();
-      const { error } = await supabase.rpc("save_canvas_snapshot", {
+      const { error } = await supabase.rpc("save_canvas_snapshot_v2", {
         p_canvas_id: canvasId,
         p_name: nextCanvasName,
         p_cards: buildCanvasCardsRpcPayload(spreadCards),
         p_note_markdown: canvasNoteDraft,
-        p_scenario: workingCanvasMeta.scenario || "",
         p_source: workingCanvasMeta.source || "manual",
-        p_auto_draw_run_id: workingCanvasMeta.autoDrawRunId || "",
+        p_canvas_file_metadata: createSnapshotCanvasFileMetadataRecord(
+          workingCanvasMeta,
+          nextCanvasName,
+        ),
       });
       if (error) throw error;
 
@@ -1727,133 +1402,91 @@ export default function CardDrawingView({
     void handleSaveCanvas();
   };
 
-  const handleAutoDrawCanvas = async (
-    scenarioInput: string,
-    scriptInput: string,
-  ) => {
+  const handleReplaceCanvasFromFile = async (plan: ImportPlan) => {
     if (!db || !supabase) {
-      toast.error("Supabase connection is required for Auto-Draw");
-      return false;
+      throw new Error("Supabase connection is required to import a canvas");
     }
 
-    const scenario = scenarioInput.trim();
-    const script = scriptInput.trim();
-    if (!scenario && !script) {
-      toast.error("Please enter a scenario or script");
-      return false;
-    }
+    const storedMetadata = createStoredMetadata(plan);
+    const noteMarkdown = plan.metadata.noteMarkdown || "";
+    const updatedAt = new Date().toISOString();
+    const nextMetadata: CanvasMetadata = {
+      name: plan.metadata.name,
+      noteMarkdown,
+      scenario: "",
+      source: "imported",
+      autoDrawRunId: "",
+      cardCount: plan.spreadCards.length,
+      type: "working",
+      status: "active",
+      createdAt: plan.metadata.createdAt,
+      updatedAt,
+      canvasFileMetadata: toCanvasFileMetadataRecord(storedMetadata),
+    };
 
-    const previousSpreadCards = spreadCards;
-    const previousLabels = labels;
-    const previousLabelGroups = labelGroups;
-    const previousWorkingCanvasMeta = workingCanvasMeta;
-    const previousCanvasNoteDraft = canvasNoteDraft;
-    const previousIsNoteEditing = isNoteEditing;
-    let endCanvasMutation: (() => void) | null = null;
-
-    setIsAutoDrawing(true);
-
+    const endCanvasMutation = beginCanvasMutation();
     try {
-      const response = await generateCanvasFromScenario({
-        scenario,
-        script,
-        cards: allCards,
-        labels,
-        labelGroups,
-        deckTypes: ["iching", "tarot"],
-      });
-      const plan = buildAutoDrawApplyPlan(
-        response,
-        allCards,
-        labels,
-        labelGroups,
-        scenario,
-        script,
-      );
-      const updatedAt = new Date().toISOString();
-      const nextMetadata: CanvasMetadata = {
-        noteMarkdown: plan.noteMarkdown,
-        scenario,
-        source: "auto-draw",
-        autoDrawRunId: plan.runId,
-        cardCount: plan.spreadCards.length,
-        type: "working",
-        status: "active",
-        updatedAt,
-      };
-      const hasCreatedMasterData =
-        plan.createdLabels.length > 0 || Boolean(plan.createdLabelGroup);
-      const masterDataVersion = hasCreatedMasterData
-        ? createMasterDataVersion()
-        : null;
-
-      endCanvasMutation = beginCanvasMutation();
-      pendingPositionByCardIdRef.current = {};
-      const { error } = await supabase.rpc("apply_auto_draw_result", {
+      const { error } = await supabase.rpc("replace_working_canvas_v2", {
+        p_name: plan.metadata.name,
         p_cards: buildCanvasCardsRpcPayload(plan.spreadCards),
-        p_note_markdown: plan.noteMarkdown,
-        p_scenario: scenario,
-        p_script: script,
-        p_run_id: plan.runId,
-        p_created_label_group: buildLabelGroupRpcPayload(
-          plan.createdLabelGroup,
-        ),
-        p_created_labels: buildLabelsRpcPayload(plan.createdLabels),
-        p_master_data_version: masterDataVersion || "",
-        p_model: response._meta?.model || "",
-        p_provider: response._meta?.provider || "freemodel.dev",
-        p_reasoning_effort: response._meta?.reasoning_effort || "",
-        p_elapsed_ms: response._meta?.elapsed_ms ?? null,
-        p_endpoint_host: response._meta?.endpoint_host || "",
-        p_card_limit: response._meta?.card_limit ?? AUTO_DRAW_CARD_LIMIT,
-        p_structured_output: response,
+        p_note_markdown: noteMarkdown,
+        p_source: "imported",
+        p_canvas_file_metadata: nextMetadata.canvasFileMetadata || {},
       });
       if (error) throw error;
 
-      setLabelGroups(plan.nextLabelGroups);
-      setLabels(plan.nextLabels);
-      if (masterDataVersion) {
-        onMasterDataWritten(masterDataVersion);
-      }
+      pendingPositionByCardIdRef.current = {};
       spreadCardsRef.current = plan.spreadCards;
       setSpreadCards(plan.spreadCards);
       setWorkingCanvasMeta(nextMetadata);
       isCanvasNoteDirtyRef.current = false;
-      setCanvasNoteDraft(plan.noteMarkdown);
+      setCanvasNoteDraft(noteMarkdown);
       setIsNoteEditing(false);
+      setIsNotePanelOpen(Boolean(noteMarkdown.trim()));
+      resetCanvasViewport();
+      closeBulkLabelPanel();
       persistWorkingCanvasState({
         spreadCards: plan.spreadCards,
         workingCanvasMeta: nextMetadata,
-        canvasNoteDraft: plan.noteMarkdown,
+        canvasNoteDraft: noteMarkdown,
       });
-      closeBulkLabelPanel();
-      setShowAutoDrawDialog(false);
-      setIsNotePanelOpen(true);
-      toast.success(
-        `Auto-Draw placed ${plan.spreadCards.length} cards on the canvas`,
-      );
-      return true;
+      toast.success(`Imported ${plan.spreadCards.length} cards`);
     } catch (error) {
-      spreadCardsRef.current = previousSpreadCards;
-      setSpreadCards(previousSpreadCards);
-      setLabels(previousLabels);
-      setLabelGroups(previousLabelGroups);
-      setWorkingCanvasMeta(previousWorkingCanvasMeta);
-      isCanvasNoteDirtyRef.current = false;
-      setCanvasNoteDraft(previousCanvasNoteDraft);
-      setIsNoteEditing(previousIsNoteEditing);
-      persistWorkingCanvasState({
-        spreadCards: previousSpreadCards,
-        workingCanvasMeta: previousWorkingCanvasMeta,
-        canvasNoteDraft: previousCanvasNoteDraft,
-      });
-      console.error("Auto-Draw failed:", error);
-      toast.error(error instanceof Error ? error.message : "Auto-Draw failed");
-      return false;
+      console.error("Import canvas file failed:", error);
+      toast.error(formatCanvasFileError(error));
+      throw error;
     } finally {
-      endCanvasMutation?.();
-      setIsAutoDrawing(false);
+      endCanvasMutation();
     }
+  };
+
+  const handleExportCanvasFile = () => {
+    try {
+      const metadata = createFileMetadataFromStored(storedCanvasFileMetadata, {
+        name: workingCanvasMeta.name || "Working Canvas",
+        noteMarkdown: canvasNoteDraft,
+        updatedAt: new Date().toISOString(),
+      });
+      const file = createCanvasFile({
+        metadata,
+        spreadCards,
+        cards: allCards,
+        labels,
+        labelGroups,
+        customLabels: customCanvasLabels,
+        relations: storedCanvasFileMetadata?.relations ?? [],
+        extensions: storedCanvasFileMetadata?.extensions ?? {},
+      });
+      downloadTextFile(createCanvasExportFilename(), serializeCanvasFile(file));
+      toast.success("Canvas file exported");
+    } catch (error) {
+      console.error("Export canvas file failed:", error);
+      toast.error(error instanceof Error ? error.message : "Export failed");
+    }
+  };
+
+  const handleDownloadCanvasFileSample = () => {
+    downloadTextFile("canvas-file-v1.sample.json", CANVAS_FILE_V1_SAMPLE_TEXT);
   };
 
   const handleUpdateCard = async (updatedCard: IChingCard) => {
@@ -1886,7 +1519,7 @@ export default function CardDrawingView({
         const card = allCards.find((c) => c.id === sc.cardId);
         const cardLabel = getCardLabel(card, getSpreadCardDeckType(sc));
         const cardLabels = sc.labels
-          .map((lId) => labels.find((l) => l.id === lId)?.name)
+          .map((lId) => effectiveLabels.find((l) => l.id === lId)?.name)
           .filter(Boolean);
         return `${index + 1}. ${cardLabel} ${card?.number}: ${card?.vietnameseName} (${card?.englishName})${cardLabels.length > 0 ? ` - Energy Field: ${cardLabels.join(", ")}` : ""}`;
       })
@@ -1948,9 +1581,9 @@ export default function CardDrawingView({
     );
 
     const nextSpreadCards = currentSpreadCards.map((card) =>
-        nextLabelsByCardId.has(card.id)
-          ? { ...card, labels: nextLabelsByCardId.get(card.id) || [] }
-          : card,
+      nextLabelsByCardId.has(card.id)
+        ? { ...card, labels: nextLabelsByCardId.get(card.id) || [] }
+        : card,
     );
     spreadCardsRef.current = nextSpreadCards;
     setSpreadCards(nextSpreadCards);
@@ -1974,17 +1607,17 @@ export default function CardDrawingView({
         if (failedCardIds.length === 0) return;
 
         const revertedSpreadCards = spreadCardsRef.current.map((card) => {
-            const failedLabels = nextLabelsByCardId.get(card.id);
-            const previousLabels = previousLabelsByCardId.get(card.id);
-            if (
-              !failedLabels ||
-              !previousLabels ||
-              !areStringArraysEqual(card.labels || [], failedLabels)
-            )
-              return card;
+          const failedLabels = nextLabelsByCardId.get(card.id);
+          const previousLabels = previousLabelsByCardId.get(card.id);
+          if (
+            !failedLabels ||
+            !previousLabels ||
+            !areStringArraysEqual(card.labels || [], failedLabels)
+          )
+            return card;
 
-            return { ...card, labels: previousLabels };
-          });
+          return { ...card, labels: previousLabels };
+        });
         spreadCardsRef.current = revertedSpreadCards;
         setSpreadCards(revertedSpreadCards);
         persistWorkingCanvasState({ spreadCards: revertedSpreadCards });
@@ -2015,6 +1648,15 @@ export default function CardDrawingView({
     );
     if (existingGroup) {
       return existingGroup.id;
+    }
+
+    const existingCanvasLocalGroup = customCanvasLabelGroups.find(
+      (group) =>
+        group.name.trim().toLocaleLowerCase() ===
+        trimmedName.toLocaleLowerCase(),
+    );
+    if (existingCanvasLocalGroup) {
+      return existingCanvasLocalGroup.id;
     }
 
     const id = crypto.randomUUID();
@@ -2055,6 +1697,13 @@ export default function CardDrawingView({
   ) => {
     const trimmedName = name.trim();
     if (!trimmedName || !groupId) return;
+
+    if (groupId.startsWith(CUSTOM_LABEL_GROUP_ID_PREFIX)) {
+      toast.error(
+        "Custom label groups are canvas-local and cannot write to Master Data",
+      );
+      return;
+    }
 
     const group = labelGroups.find((item) => item.id === groupId);
     if (!group) {
@@ -2119,12 +1768,12 @@ export default function CardDrawingView({
           prev.filter((labelId) => labelId !== id),
         );
         const nextSpreadCards = spreadCardsRef.current.map((card) =>
-            card.labels?.includes(id)
-              ? {
-                  ...card,
-                  labels: card.labels.filter((labelId) => labelId !== id),
-                }
-              : card,
+          card.labels?.includes(id)
+            ? {
+                ...card,
+                labels: card.labels.filter((labelId) => labelId !== id),
+              }
+            : card,
         );
         spreadCardsRef.current = nextSpreadCards;
         setSpreadCards(nextSpreadCards);
@@ -2290,13 +1939,13 @@ export default function CardDrawingView({
 
         delete pendingPositionByCardIdRef.current[id];
         const revertedSpreadCards = spreadCardsRef.current.map((spreadCard) =>
-            spreadCard.id === id && spreadCard.x === x && spreadCard.y === y
-              ? {
-                  ...spreadCard,
-                  x: previousPosition.x,
-                  y: previousPosition.y,
-                }
-              : spreadCard,
+          spreadCard.id === id && spreadCard.x === x && spreadCard.y === y
+            ? {
+                ...spreadCard,
+                x: previousPosition.x,
+                y: previousPosition.y,
+              }
+            : spreadCard,
         );
         spreadCardsRef.current = revertedSpreadCards;
         setSpreadCards(revertedSpreadCards);
@@ -2484,7 +2133,9 @@ export default function CardDrawingView({
       const nextLabels = Array.from(new Set(labelIds));
 
       const nextSpreadCards = spreadCardsRef.current.map((spreadCard) =>
-        spreadCard.id === id ? { ...spreadCard, labels: nextLabels } : spreadCard,
+        spreadCard.id === id
+          ? { ...spreadCard, labels: nextLabels }
+          : spreadCard,
       );
       spreadCardsRef.current = nextSpreadCards;
       setSpreadCards(nextSpreadCards);
@@ -2497,10 +2148,10 @@ export default function CardDrawingView({
         updatedAt: new Date().toISOString(),
       }).catch((error) => {
         const revertedSpreadCards = spreadCardsRef.current.map((spreadCard) =>
-            spreadCard.id === id &&
-            areStringArraysEqual(spreadCard.labels || [], nextLabels)
-              ? { ...spreadCard, labels: previousLabels }
-              : spreadCard,
+          spreadCard.id === id &&
+          areStringArraysEqual(spreadCard.labels || [], nextLabels)
+            ? { ...spreadCard, labels: previousLabels }
+            : spreadCard,
         );
         spreadCardsRef.current = revertedSpreadCards;
         setSpreadCards(revertedSpreadCards);
@@ -2544,13 +2195,13 @@ export default function CardDrawingView({
         updatedAt: new Date().toISOString(),
       }).catch((error) => {
         const revertedSpreadCards = spreadCardsRef.current.map((spreadCard) => {
-            const stillAtOptimisticState = Object.entries(updates).every(
-              ([key, value]) => spreadCard[key as keyof SpreadCard] === value,
-            );
-            return spreadCard.id === id && stillAtOptimisticState
-              ? { ...spreadCard, ...previousUpdates }
-              : spreadCard;
-          });
+          const stillAtOptimisticState = Object.entries(updates).every(
+            ([key, value]) => spreadCard[key as keyof SpreadCard] === value,
+          );
+          return spreadCard.id === id && stillAtOptimisticState
+            ? { ...spreadCard, ...previousUpdates }
+            : spreadCard;
+        });
         spreadCardsRef.current = revertedSpreadCards;
         setSpreadCards(revertedSpreadCards);
         persistWorkingCanvasState({ spreadCards: revertedSpreadCards });
@@ -2653,15 +2304,14 @@ export default function CardDrawingView({
     <div className="h-full flex flex-col relative overflow-hidden bg-[#f8f9fa]">
       {/* Top Right Buttons */}
       <div className="absolute top-6 right-6 z-40 flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowAutoDrawDialog(true)}
-          className="bg-white/90 backdrop-blur-md border-[#e2e8f0] rounded-xl shadow-lg shadow-black/5 font-bold text-xs uppercase tracking-wider gap-2 h-10 px-4 hover:bg-[#166db0] hover:text-white hover:border-[#166db0] transition-all"
-        >
-          <WandSparkles className="w-4 h-4" />
-          Auto-Draw
-        </Button>
+        <CanvasFileMenu
+          cards={allCards}
+          labels={labels}
+          labelGroups={labelGroups}
+          onReplaceCanvas={handleReplaceCanvasFromFile}
+          onExport={handleExportCanvasFile}
+          onDownloadSample={handleDownloadCanvasFileSample}
+        />
         <Button
           variant="outline"
           size="sm"
@@ -2750,8 +2400,8 @@ export default function CardDrawingView({
           <SpreadCanvas
             spreadCards={spreadCards}
             cards={allCards}
-            labels={labels}
-            labelGroups={labelGroups}
+            labels={effectiveLabels}
+            labelGroups={effectiveLabelGroups}
             onUpdatePosition={handleUpdateCardPosition}
             onSelectCard={handleSelectCard}
             onUpdateLabels={handleUpdateCardLabels}
@@ -2768,8 +2418,8 @@ export default function CardDrawingView({
           {isBulkLabelPanelOpen && (
             <BulkLabelPanel
               selectedCardCount={bulkSelectedCardIds.length}
-              labels={labels}
-              labelGroups={labelGroups}
+              labels={effectiveLabels}
+              labelGroups={effectiveLabelGroups}
               selectedLabelIds={bulkSelectedLabelIds}
               isSaving={isBulkLabelSaving}
               position={bulkLabelPanelPosition}
@@ -2844,13 +2494,6 @@ export default function CardDrawingView({
         />
       )}
 
-      <AutoDrawDialog
-        open={showAutoDrawDialog}
-        isGenerating={isAutoDrawing}
-        onOpenChange={setShowAutoDrawDialog}
-        onGenerate={handleAutoDrawCanvas}
-      />
-
       <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
         <DialogContent>
           <DialogHeader>
@@ -2899,7 +2542,7 @@ export default function CardDrawingView({
               {spreadCards.map((sc, index) => {
                 const card = allCards.find((c) => c.id === sc.cardId);
                 const cardLabels = sc.labels
-                  .map((lId) => labels.find((l) => l.id === lId)?.name)
+                  .map((lId) => effectiveLabels.find((l) => l.id === lId)?.name)
                   .filter(Boolean);
                 return (
                   <div

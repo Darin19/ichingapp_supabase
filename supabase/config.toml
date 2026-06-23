@@ -91,7 +91,7 @@ enabled = true
 port = 54323
 # External URL of the API server that frontend connects to.
 api_url = "http://127.0.0.1"
-# Supabase Studio AI is disabled for this app; Auto-Draw uses freemodel.dev via Edge Function.
+# Supabase Studio AI is disabled for this app.
 openai_api_key = ""
 
 # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
@@ -374,10 +374,6 @@ deno_version = 2
 
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
-
-[functions.generate-canvas]
-enabled = true
-verify_jwt = true
 
 [analytics]
 enabled = true

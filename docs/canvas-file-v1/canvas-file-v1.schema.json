@@ -1,0 +1,326 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ichingapp:canvas-file:v1",
+  "title": "iChing Canvas File v1",
+  "description": "Portable, provider-neutral representation of one Tarot/iChing canvas.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "schemaVersion",
+    "metadata",
+    "labels",
+    "nodes",
+    "relations",
+    "extensions"
+  ],
+  "properties": {
+    "format": {
+      "const": "iching-canvas"
+    },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/masterLabel"
+          },
+          {
+            "$ref": "#/$defs/customLabel"
+          }
+        ]
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/tarotNode"
+          },
+          {
+            "$ref": "#/$defs/ichingNode"
+          }
+        ]
+      }
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "$ref": "#/$defs/relation"
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Provider- or feature-specific data that v1 preserves but does not interpret.",
+      "default": {},
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "nonEmptyText": {
+      "type": "string",
+      "minLength": 1
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "createdAt", "updatedAt"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "default": ""
+        },
+        "sourceScript": {
+          "type": "string",
+          "default": ""
+        },
+        "noteMarkdown": {
+          "type": "string",
+          "default": ""
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "masterGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyText"
+        }
+      }
+    },
+    "customGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^custom-group:[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyText"
+        }
+      }
+    },
+    "masterLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "name", "group"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "source": {
+          "const": "master"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "group": {
+          "$ref": "#/$defs/masterGroup"
+        },
+        "description": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "customLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "name", "group"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^custom:[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "source": {
+          "const": "custom"
+        },
+        "name": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "group": {
+          "$ref": "#/$defs/customGroup"
+        },
+        "description": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    },
+    "tarotNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "cardId",
+        "cardNumber",
+        "displayName",
+        "position",
+        "state",
+        "order",
+        "labelIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "type": {
+          "const": "tarot"
+        },
+        "cardId": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "cardNumber": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "displayName": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "position": {
+          "$ref": "#/$defs/position"
+        },
+        "state": {
+          "enum": ["upright", "reversed"]
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "labelIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyText"
+          }
+        }
+      }
+    },
+    "ichingNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "cardId",
+        "cardNumber",
+        "displayName",
+        "position",
+        "state",
+        "order",
+        "labelIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "type": {
+          "const": "iching"
+        },
+        "cardId": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "cardNumber": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "displayName": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "position": {
+          "$ref": "#/$defs/position"
+        },
+        "state": {
+          "enum": ["positive", "neutral", "negative"]
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "labelIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyText"
+          }
+        }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "from", "to"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "type": {
+          "enum": [
+            "supports",
+            "clarifies",
+            "contrasts",
+            "follows",
+            "groups-with",
+            "related"
+          ]
+        },
+        "from": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "to": {
+          "$ref": "#/$defs/nonEmptyText"
+        },
+        "label": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    }
+  }
+}
