@@ -20,6 +20,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Local cache
+.worktrees/
 # .firebase/
 # supabase/.temp/
 # supabase/supabase/
