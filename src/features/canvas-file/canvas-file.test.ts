@@ -175,7 +175,7 @@ describe("createImportPlan", () => {
     expect(reversed?.isReversed).toBe(true);
   });
 
-  it("resolves a master label by group and name, never by global name", () => {
+  it("resolves a master label by group id and name without warning", () => {
     const file = cloneSample();
     const target = file.labels[0];
     target.id = "stale-master-id";
@@ -194,6 +194,19 @@ describe("createImportPlan", () => {
     expect(plan.spreadCards.flatMap((card) => card.labels)).not.toContain(
       "wrong-group-label",
     );
+    expect(plan.warnings.some((warning) => /group.*name/i.test(warning))).toBe(
+      false,
+    );
+  });
+
+  it("warns when resolving a master label by group name and label name", () => {
+    const file = cloneSample();
+    const target = file.labels[0];
+    target.id = "stale-master-id";
+    target.group.id = "stale-group-id";
+
+    const plan = createImportPlan(file, { cards, labels, labelGroups });
+
     expect(plan.warnings.some((warning) => /group.*name/i.test(warning))).toBe(
       true,
     );

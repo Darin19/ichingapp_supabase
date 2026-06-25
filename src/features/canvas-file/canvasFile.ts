@@ -314,7 +314,7 @@ export const createImportPlan = (
     if (resolved.label) {
       labelIdMap.set(fileLabel.id, resolved.label.id);
       resolvedMasterLabelCount += 1;
-      if (resolved.resolution !== "id") {
+      if (resolved.resolution === "group-name-name") {
         warnings.push(
           `Label “${fileLabel.name}” được resolve bằng group + name (${resolved.resolution}).`,
         );
