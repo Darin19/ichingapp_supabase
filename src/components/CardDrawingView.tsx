@@ -817,28 +817,6 @@ export default function CardDrawingView({
     workingCanvasMeta,
   ]);
 
-  const removeCardFromDeckState = useCallback(
-    (targetDeckType: DeckType, sourceDeckIndex: number, cardId: string) => {
-      deckLoadVersionRef.current[targetDeckType] += 1;
-
-      setDeckStates((prev) =>
-        removeCardFromDeckStates(prev, targetDeckType, sourceDeckIndex, cardId),
-      );
-    },
-    [],
-  );
-
-  const returnCardToDeckState = useCallback(
-    (targetDeckType: DeckType, sourceDeckIndex: number, card: DeckCard) => {
-      deckLoadVersionRef.current[targetDeckType] += 1;
-
-      setDeckStates((prev) =>
-        returnCardToDeckStates(prev, targetDeckType, sourceDeckIndex, card),
-      );
-    },
-    [],
-  );
-
   const refreshDeckStateFromDb = useCallback(
     async (targetDeckType: DeckType, targetCards: DeckCard[]) => {
       if (!db) return;
