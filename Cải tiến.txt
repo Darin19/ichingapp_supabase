@@ -1,0 +1,4 @@
+- Tối ưu tốc độ mọi chức năng, bao gồm: Xáo bài, Reset
+- Có thể áp dụng Redis hoặc các công nghệ khác để tối ưu thời gian
+- Chức năng SYNC có ý nghĩa gì? Vẫn hoạt động tốt chứ?
+- Bổ sung chức năng rút bài từ chế độ Fan of Cards
