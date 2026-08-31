@@ -3,8 +3,8 @@ node_modules/
 
 # Build output
 dist/
-# build/
-# coverage/
+build/
+coverage/
 
 # Environment files
 .env
@@ -21,17 +21,19 @@ pnpm-debug.log*
 
 # Local cache
 .worktrees/
-# .firebase/
-# supabase/.temp/
-# supabase/supabase/
-# .vite/
-# .turbo/
-# .cache/
-# .agents/
-# skills-lock.json
+.firebase/
+supabase/.temp/
+supabase/**/.temp/
+.vite/
+.turbo/
+.cache/
+.codebase-memory/
+.agents/
+skills-lock.json
 
 # OS / editor
-# .DS_Store
-# Thumbs.db
-# .idea/
-# .vscode/
+.DS_Store
+Thumbs.db
+.idea/
+*.code-workspace
+# Keep .vscode/ tracked: components.json references its shared schema.

@@ -8,6 +8,11 @@ coverage/
 .turbo/
 .cache/
 .git/
+.worktrees/
+.agents/
+.codebase-memory/
+skills-lock.json
+*.code-workspace
 
 *.log
 
