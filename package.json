@@ -1,7 +1,8 @@
 {
-  "name": "react-example",
+  "name": "iching-app",
   "private": true,
   "version": "0.0.0",
+  "description": "Desktop-first I Ching and Tarot canvas app with Supabase persistence.",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -20,8 +21,6 @@
     "@fontsource-variable/geist": "^5.2.8",
     "@mdxeditor/editor": "^4.0.2",
     "@supabase/supabase-js": "^2.106.1",
-    "@tailwindcss/vite": "^4.1.14",
-    "@vitejs/plugin-react": "^5.0.4",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "class-variance-authority": "^0.7.1",
@@ -35,14 +34,14 @@
     "shadcn": "^4.2.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
-    "tw-animate-css": "^1.4.0",
-    "vite": "^6.2.0"
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
-    "autoprefixer": "^10.4.21",
+    "@vitejs/plugin-react": "^5.0.4",
     "prettier": "^3.8.3",
     "supabase": "^2.105.0",
     "tailwindcss": "^4.1.14",
