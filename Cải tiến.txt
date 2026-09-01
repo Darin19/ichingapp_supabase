@@ -2,3 +2,5 @@
 - Có thể áp dụng Redis hoặc các công nghệ khác để tối ưu thời gian
 - Chức năng SYNC có ý nghĩa gì? Vẫn hoạt động tốt chứ?
 - Bổ sung chức năng rút bài từ chế độ Fan of Cards
+- Fix bug khi xóa label nhưng database ko được đồng bộ
+- Rà soát thượng quái, hạ quái của các quẻ
