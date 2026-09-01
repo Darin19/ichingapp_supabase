@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { DeckCard } from "../types";
 import DeckArea from "./DeckArea";
+import FanDeck from "./FanDeck";
 import {
   clampFanDeckIndex,
   getFanCardSelection,
@@ -59,7 +60,7 @@ describe("clampFanDeckIndex", () => {
 });
 
 describe("FAN draw mode", () => {
-  it("shows FAN, TOP, and ORDER controls and exposes each facedown fan position", () => {
+  it("uses the shared controls and compact random-deck toolbar without an Add Deck button", () => {
     const localStorage = { getItem: () => null, setItem: () => undefined };
     Object.assign(globalThis, { localStorage });
 
@@ -85,6 +86,41 @@ describe("FAN draw mode", () => {
     expect(markup).not.toContain('aria-label="Draw card 4 of 5 from fan 2"');
     expect(markup).toContain(">5 / 5<");
     expect(markup).toContain('data-fan-deck-content="true"');
-    expect(markup).toContain('data-compact-add-deck="true"');
+    expect(markup).toContain('data-deck-controls-header="true"');
+    expect(markup).toContain('data-random-deck-toolbar="true"');
+    expect(markup).toContain('aria-label="Shuffle all decks"');
+    expect(markup).not.toContain("Shuffle All Decks");
+    expect(markup).not.toContain("Add New Deck");
+  });
+
+  it("keeps the Deck Controls header invariant across TOP and ORDER", () => {
+    const localStorage = { getItem: () => null, setItem: () => undefined };
+    Object.assign(globalThis, { localStorage });
+
+    const topMarkup = renderToStaticMarkup(
+      <DeckArea {...{ cards: deck, deckType: "iching", onDeckTypeChange: () => undefined, mode: "random", onModeChange: () => undefined, onDraw: () => undefined, randomDecks: [deck], deckCount: 1, onShuffle: () => undefined, onUpdateDeckCount: () => undefined }} />,
+    );
+    const orderMarkup = renderToStaticMarkup(
+      <DeckArea {...{ cards: deck, deckType: "iching", onDeckTypeChange: () => undefined, mode: "order", onModeChange: () => undefined, onDraw: () => undefined, randomDecks: [deck], deckCount: 1, onShuffle: () => undefined, onUpdateDeckCount: () => undefined }} />,
+    );
+
+    expect(topMarkup).toContain('data-deck-controls-header="true"');
+    expect(topMarkup).toContain('data-random-deck-toolbar="true"');
+    expect(topMarkup).toContain('aria-label="Shuffle all decks"');
+    expect(topMarkup).not.toContain("Shuffle All Decks");
+    expect(topMarkup).not.toContain("Add New Deck");
+    expect(orderMarkup).toContain('data-deck-controls-header="true"');
+    expect(orderMarkup).toContain('data-order-search="true"');
+    expect(orderMarkup).not.toContain('data-random-deck-toolbar="true"');
+    expect(orderMarkup).not.toContain("Add New Deck");
+  });
+
+  it("places the count in a dedicated FAN footer below the two rows", () => {
+    const markup = renderToStaticMarkup(
+      <FanDeck deck={deck} deckIndex={0} deckType="iching" totalCards={64} onDraw={() => undefined} />,
+    );
+
+    expect(markup).toContain('data-fan-count-footer="true"');
+    expect(markup).toContain(">5 / 64<");
   });
 });

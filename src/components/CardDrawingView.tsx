@@ -613,7 +613,6 @@ export default function CardDrawingView({
     [],
   );
 
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [canvasName, setCanvasName] = useState("");
@@ -1151,7 +1150,7 @@ export default function CardDrawingView({
   ]);
 
   const handleReset = () => {
-    setShowResetConfirm(true);
+    void executeReset();
   };
 
   const openSaveDialog = () => {
@@ -1242,7 +1241,6 @@ export default function CardDrawingView({
   };
 
   const executeReset = async () => {
-    setShowResetConfirm(false);
     if (!db) {
       toast.error("Supabase connection is required to reset the canvas");
       return;
@@ -2510,29 +2508,6 @@ export default function CardDrawingView({
           onClose={() => setSelectedCardId(null)}
         />
       )}
-
-      <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Canvas</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to clear the canvas and reset iChing and
-              Tarot decks to 3 ordered decks each? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowResetConfirm(false)}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={executeReset}>
-              Reset
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Info Dialog */}
       <Dialog open={showInfo} onOpenChange={setShowInfo}>

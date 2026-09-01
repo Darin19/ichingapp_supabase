@@ -160,12 +160,14 @@ export default function FanDeck({
         {renderRow(secondRow, firstRow.length)}
       </div>
 
-      <p className="mt-1.5 text-center text-[12px] font-bold tabular-nums text-[#166db0]">
-        {deck.length} / {totalCards}
-        <span className="ml-1.5 text-[10px] uppercase tracking-wider text-[#64748b]">
-          {deckName}
-        </span>
-      </p>
+      <div data-fan-count-footer="true" className="shrink-0 pt-3">
+        <p className="text-center text-[12px] font-bold tabular-nums text-[#166db0]">
+          {deck.length} / {totalCards}
+          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-[#64748b]">
+            {deckName}
+          </span>
+        </p>
+      </div>
 
       {deck.length === 0 && (
         <div className="absolute inset-x-0 top-0 flex h-[220px] items-center justify-center bg-white/80 backdrop-blur-[1px]">

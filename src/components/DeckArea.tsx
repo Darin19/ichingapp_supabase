@@ -124,9 +124,8 @@ export default function DeckArea({
       className={`border-r border-[#e2e8f0] bg-white flex flex-col z-30 shadow-xl h-full min-h-0 overflow-hidden relative transition-[width] duration-0 ${isResizing ? "select-none cursor-col-resize" : ""}`}
     >
       <header
-        className={isFanMode
-          ? "border-b border-[#e2e8f0] px-4 py-3 space-y-2"
-          : "p-6 border-b border-[#e2e8f0] space-y-4"}
+        data-deck-controls-header="true"
+        className="border-b border-[#e2e8f0] px-4 py-3 space-y-2"
       >
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-[#166db0]" />
@@ -192,8 +191,11 @@ export default function DeckArea({
         </div>
 
         {usesRandomDecks ? (
-          <div className={isFanMode ? "space-y-2" : "space-y-3"}>
-            <div className="flex items-center justify-between bg-[#f8f9fa] p-1.5 rounded-xl border border-[#e2e8f0]">
+          <div
+            data-random-deck-toolbar="true"
+            className="grid grid-cols-[minmax(0,1fr)_auto] gap-2"
+          >
+            <div className="flex h-9 min-w-0 items-center justify-between rounded-xl border border-[#e2e8f0] bg-[#f8f9fa] px-1.5">
               <span className="text-[12px] font-bold text-[#000000] uppercase tracking-wider pl-2">
                 Decks: {deckCount}
               </span>
@@ -201,7 +203,7 @@ export default function DeckArea({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-[16px] text-[#495360] hover:bg-white hover:text-[#0f172a] rounded-lg"
+                  className="h-7 w-7 text-[16px] text-[#495360] hover:bg-white hover:text-[#0f172a] rounded-lg"
                   onClick={() => onUpdateDeckCount(Math.max(1, deckCount - 1))}
                 >
                   <Minus className="w-4 h-4" />
@@ -209,7 +211,7 @@ export default function DeckArea({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-[16px] text-[#495360] hover:bg-white hover:text-[#0f172a] rounded-lg"
+                  className="h-7 w-7 text-[16px] text-[#495360] hover:bg-white hover:text-[#0f172a] rounded-lg"
                   onClick={() => onUpdateDeckCount(Math.min(10, deckCount + 1))}
                 >
                   <Plus className="w-4 h-4" />
@@ -218,14 +220,15 @@ export default function DeckArea({
             </div>
             <Button
               onClick={onShuffle}
-              className={`${isFanMode ? "h-8 text-[10px]" : "h-10 text-xs"} w-full bg-[#166db0] hover:bg-[#0e4a77] text-white rounded-xl shadow-lg shadow-[#166db0]/20 gap-2 font-bold uppercase tracking-wider`}
+              aria-label="Shuffle all decks"
+              title="Shuffle all decks"
+              className="h-9 w-9 rounded-xl bg-[#166db0] p-0 text-white shadow-lg shadow-[#166db0]/20 hover:bg-[#0e4a77]"
             >
               <Shuffle className="w-4 h-4" />
-              Shuffle All Decks
             </Button>
           </div>
         ) : (
-          <div className="relative">
+          <div data-order-search="true" className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8]" />
             <Input
               placeholder={
@@ -273,18 +276,6 @@ export default function DeckArea({
               totalCards={totalCards}
               onDraw={onDraw}
             />
-          </div>
-          <div className="shrink-0 py-2">
-            <Button
-              data-compact-add-deck="true"
-              variant="ghost"
-              className="h-8 w-full rounded-xl border border-dashed border-[#e2e8f0] text-[10px] font-bold uppercase tracking-wider text-[#495360] hover:border-[#166db0]/50 hover:bg-[#f8f9fa] hover:text-[#0f172a]"
-              onClick={() => onUpdateDeckCount(Math.min(10, deckCount + 1))}
-              disabled={deckCount >= 10}
-            >
-              <Plus className="mr-1.5 w-3.5 h-3.5" />
-              Add New Deck
-            </Button>
           </div>
         </div>
       ) : (
@@ -348,14 +339,6 @@ export default function DeckArea({
                     )}
                   </div>
               ))}
-              <Button
-                variant="ghost"
-                className="w-full border-2 border-dashed border-[#e2e8f0] text-[#495360] text-xs h-12 rounded-2xl hover:bg-[#f8f9fa] hover:text-[#0f172a] hover:border-[#166db0]/50 transition-all font-bold uppercase tracking-wider"
-                onClick={() => onUpdateDeckCount(deckCount + 1)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add New Deck
-              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4">
