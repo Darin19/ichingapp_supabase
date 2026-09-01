@@ -70,6 +70,7 @@ import {
   writeMasterDataMarker,
 } from "../lib/masterDataCache";
 import { formatCardInfoLine, getCardInfoNameParts } from "../lib/cardInfo";
+import { shuffleAllDeckStates } from "../lib/deckShuffle";
 
 const CanvasNoteEditor = lazy(() => import("./CanvasNoteEditor"));
 
@@ -627,6 +628,9 @@ export default function CardDrawingView({
   const workingCanvasMetaRef = useRef(workingCanvasMeta);
   const spreadCardsRef = useRef(spreadCards);
   const deckStatesRef = useRef(deckStates);
+  const pendingShuffleRef = useRef<
+    Partial<Record<DeckType, Promise<unknown>>>
+  >({});
   const hasRestoredLocalWorkingStateRef = useRef(false);
   const skipNextWorkingStatePersistRef = useRef(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
@@ -1776,6 +1780,10 @@ export default function CardDrawingView({
 
     const id = crypto.randomUUID();
     const sourceDeckType = deckType;
+    const pendingShuffle = pendingShuffleRef.current[sourceDeckType];
+    if (pendingShuffle) {
+      await pendingShuffle.catch(() => undefined);
+    }
     const cardData = activeCards.find((c) => c.id === cardId);
     if (!cardData) return;
     const previousSpreadCards = spreadCardsRef.current;
@@ -2195,30 +2203,59 @@ export default function CardDrawingView({
   const handleShuffle = async () => {
     if (!db) return;
 
-    try {
-      if (!supabase) {
-        throw new Error("Supabase client is not available.");
-      }
+    if (!supabase) {
+      toast.error("Supabase connection is required to shuffle decks");
+      return;
+    }
+    const supabaseClient = supabase;
 
-      const { data, error } = await supabase.rpc("shuffle_random_decks", {
-        p_deck_type: deckType,
+    const previousDeckStates = deckStatesRef.current;
+    const optimisticDeckStates = shuffleAllDeckStates(previousDeckStates);
+    deckStatesRef.current = optimisticDeckStates;
+    setDeckStates(optimisticDeckStates);
+    persistWorkingCanvasState({ deckStates: optimisticDeckStates });
+
+    const activeType = deckType;
+    const inactiveType: DeckType = activeType === "iching" ? "tarot" : "iching";
+    const persistShuffle = async (targetDeckType: DeckType) => {
+      const state = optimisticDeckStates[targetDeckType];
+      const { error } = await supabaseClient.rpc("shuffle_random_decks_v2", {
+        p_deck_type: targetDeckType,
+        p_decks: state.randomDecks.map((cards, index) => ({
+          id: `deck-${index + 1}`,
+          cardIds: cards.map((card) => card.id),
+        })),
       });
       if (error) throw error;
+    };
 
-      const result = (data || {}) as ShuffleRpcResult;
-      if (applyDeckRpcResult(deckType, result, activeCards)) {
-        persistWorkingCanvasState();
-      } else {
-        await refreshDeckStateFromDb(deckType, activeCards);
+    const activePromise = persistShuffle(activeType);
+    const inactivePromise = persistShuffle(inactiveType);
+    pendingShuffleRef.current[activeType] = activePromise;
+    pendingShuffleRef.current[inactiveType] = inactivePromise;
+
+    const settleShuffle = async (targetDeckType: DeckType, promise: Promise<unknown>) => {
+      try {
+        await promise;
+      } catch (error) {
+        console.error(`Shuffle ${targetDeckType} failed:`, error);
+        await refreshDeckStateFromDb(targetDeckType, deckCardSets[targetDeckType]);
+        toast.error(
+          isQuotaExceededError(error)
+            ? `${targetDeckType === "tarot" ? "Tarot" : "I Ching"} decks were not shuffled in DB.`
+            : `Failed to shuffle ${targetDeckType === "tarot" ? "Tarot" : "I Ching"} decks`,
+        );
+      } finally {
+        if (pendingShuffleRef.current[targetDeckType] === promise) {
+          delete pendingShuffleRef.current[targetDeckType];
+        }
       }
-    } catch (err) {
-      console.error("Shuffle failed:", err);
-      toast.error(
-        isQuotaExceededError(err)
-          ? "Supabase quota exceeded. Decks were not shuffled in DB."
-          : "Failed to shuffle decks",
-      );
-    }
+    };
+
+    await Promise.all([
+      settleShuffle(activeType, activePromise),
+      settleShuffle(inactiveType, inactivePromise),
+    ]);
   };
 
   const updateDeckCount = async (newCount: number) => {

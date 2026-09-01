@@ -96,6 +96,7 @@ export default function DeckArea({
   }, [isResizing, resize, stopResizing]);
 
   const isTarotDeck = deckType === "tarot";
+  const isFanMode = mode === "fan";
   const totalCards = cards.length;
   const usesRandomDecks = mode === "random" || mode === "fan";
   const selectedFanDeckIndex = clampFanDeckIndex(
@@ -122,7 +123,11 @@ export default function DeckArea({
       ref={sidebarRef}
       className={`border-r border-[#e2e8f0] bg-white flex flex-col z-30 shadow-xl h-full min-h-0 overflow-hidden relative transition-[width] duration-0 ${isResizing ? "select-none cursor-col-resize" : ""}`}
     >
-      <header className="p-6 border-b border-[#e2e8f0] space-y-4">
+      <header
+        className={isFanMode
+          ? "border-b border-[#e2e8f0] px-4 py-3 space-y-2"
+          : "p-6 border-b border-[#e2e8f0] space-y-4"}
+      >
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-[#166db0]" />
           <h2 className="text-[0.75rem] font-bold text-[#465160] uppercase tracking-[0.15em]">
@@ -187,7 +192,7 @@ export default function DeckArea({
         </div>
 
         {usesRandomDecks ? (
-          <div className="space-y-3">
+          <div className={isFanMode ? "space-y-2" : "space-y-3"}>
             <div className="flex items-center justify-between bg-[#f8f9fa] p-1.5 rounded-xl border border-[#e2e8f0]">
               <span className="text-[12px] font-bold text-[#000000] uppercase tracking-wider pl-2">
                 Decks: {deckCount}
@@ -213,7 +218,7 @@ export default function DeckArea({
             </div>
             <Button
               onClick={onShuffle}
-              className="w-full h-10 bg-[#166db0] hover:bg-[#0e4a77] text-white rounded-xl shadow-lg shadow-[#166db0]/20 gap-2 text-xs font-bold uppercase tracking-wider"
+              className={`${isFanMode ? "h-8 text-[10px]" : "h-10 text-xs"} w-full bg-[#166db0] hover:bg-[#0e4a77] text-white rounded-xl shadow-lg shadow-[#166db0]/20 gap-2 font-bold uppercase tracking-wider`}
             >
               <Shuffle className="w-4 h-4" />
               Shuffle All Decks
@@ -234,43 +239,60 @@ export default function DeckArea({
         )}
       </header>
 
+      {isFanMode ? (
+        <div
+          data-fan-deck-content="true"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2"
+        >
+          {randomDecks.length > 1 && (
+            <div
+              aria-label="Choose a fan deck"
+              className="flex shrink-0 items-center gap-1 overflow-x-auto pb-1"
+            >
+              {randomDecks.map((deck, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  aria-pressed={index === selectedFanDeckIndex}
+                  onClick={() => setActiveFanDeckIndex(index)}
+                  className={`shrink-0 border-b-2 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#166db0] ${index === selectedFanDeckIndex ? "border-[#166db0] text-[#166db0]" : "border-transparent text-[#64748b] hover:text-[#0f172a]"}`}
+                >
+                  Deck {index + 1}
+                  <span className="ml-1 tabular-nums text-[#94a3b8]">
+                    {deck.length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="min-h-0 flex-1 pt-1">
+            <FanDeck
+              deck={selectedFanDeck}
+              deckIndex={selectedFanDeckIndex}
+              deckType={deckType}
+              totalCards={totalCards}
+              onDraw={onDraw}
+            />
+          </div>
+          <div className="shrink-0 py-2">
+            <Button
+              data-compact-add-deck="true"
+              variant="ghost"
+              className="h-8 w-full rounded-xl border border-dashed border-[#e2e8f0] text-[10px] font-bold uppercase tracking-wider text-[#495360] hover:border-[#166db0]/50 hover:bg-[#f8f9fa] hover:text-[#0f172a]"
+              onClick={() => onUpdateDeckCount(Math.min(10, deckCount + 1))}
+              disabled={deckCount >= 10}
+            >
+              <Plus className="mr-1.5 w-3.5 h-3.5" />
+              Add New Deck
+            </Button>
+          </div>
+        </div>
+      ) : (
       <ScrollArea className="flex-1 min-h-0 h-full">
         <div className="p-6 space-y-6 relative">
           {usesRandomDecks ? (
             <div className="space-y-4">
-              {mode === "fan" ? (
-                <div className="space-y-3">
-                  {randomDecks.length > 1 && (
-                    <div
-                      aria-label="Choose a fan deck"
-                      className="flex items-center gap-1 overflow-x-auto pb-1"
-                    >
-                      {randomDecks.map((deck, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          aria-pressed={index === selectedFanDeckIndex}
-                          onClick={() => setActiveFanDeckIndex(index)}
-                          className={`shrink-0 border-b-2 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#166db0] ${index === selectedFanDeckIndex ? "border-[#166db0] text-[#166db0]" : "border-transparent text-[#64748b] hover:text-[#0f172a]"}`}
-                        >
-                          Deck {index + 1}
-                          <span className="ml-1 tabular-nums text-[#94a3b8]">
-                            {deck.length}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <FanDeck
-                    deck={selectedFanDeck}
-                    deckIndex={selectedFanDeckIndex}
-                    deckType={deckType}
-                    totalCards={totalCards}
-                    onDraw={onDraw}
-                  />
-                </div>
-              ) : (
-                randomDecks.map((deck, i) => (
+              {randomDecks.map((deck, i) => (
                   <div
                     key={i}
                     onClick={() =>
@@ -325,8 +347,7 @@ export default function DeckArea({
                       </div>
                     )}
                   </div>
-                ))
-              )}
+              ))}
               <Button
                 variant="ghost"
                 className="w-full border-2 border-dashed border-[#e2e8f0] text-[#495360] text-xs h-12 rounded-2xl hover:bg-[#f8f9fa] hover:text-[#0f172a] hover:border-[#166db0]/50 transition-all font-bold uppercase tracking-wider"
@@ -417,6 +438,7 @@ export default function DeckArea({
           )}
         </div>
       </ScrollArea>
+      )}
 
       {/* Resize Handle */}
       <div
