@@ -222,7 +222,7 @@ export default function DeckArea({
               onClick={onShuffle}
               aria-label="Shuffle all decks"
               title="Shuffle all decks"
-              className="h-9 w-9 rounded-xl bg-[#166db0] p-0 text-white shadow-lg shadow-[#166db0]/20 hover:bg-[#0e4a77]"
+              className="h-9 w-[81px] rounded-xl bg-[#166db0] p-0 text-white shadow-lg shadow-[#166db0]/20 hover:bg-[#0e4a77]"
             >
               <Shuffle className="w-4 h-4" />
             </Button>

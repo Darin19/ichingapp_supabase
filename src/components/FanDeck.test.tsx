@@ -5,8 +5,10 @@ import DeckArea from "./DeckArea";
 import FanDeck from "./FanDeck";
 import {
   clampFanDeckIndex,
+  getFanDeckMetrics,
   getFanCardSelection,
   getSpreadRowLayout,
+  reconcileFanRows,
   splitDeckIntoRows,
 } from "./FanDeck";
 
@@ -28,26 +30,43 @@ describe("getFanCardSelection", () => {
   });
 });
 
-describe("two-row FAN layout", () => {
-  it("splits Tarot, I Ching, and odd decks with the logical order intact", () => {
+describe("three-row FAN layout", () => {
+  it("splits Tarot, I Ching, and odd decks into three balanced rows with the logical order intact", () => {
     const tarot = Array.from({ length: 78 }, (_, index) => ({ ...deck[0], id: `t-${index}` }));
     const iching = Array.from({ length: 64 }, (_, index) => ({ ...deck[0], id: `i-${index}` }));
 
-    expect(splitDeckIntoRows(tarot)).toEqual([tarot.slice(0, 39), tarot.slice(39)]);
-    expect(splitDeckIntoRows(iching)).toEqual([iching.slice(0, 32), iching.slice(32)]);
-    expect(splitDeckIntoRows(deck)).toEqual([deck.slice(0, 3), deck.slice(3)]);
+    expect(splitDeckIntoRows(tarot)).toEqual([tarot.slice(0, 26), tarot.slice(26, 52), tarot.slice(52)]);
+    expect(splitDeckIntoRows(iching)).toEqual([iching.slice(0, 22), iching.slice(22, 43), iching.slice(43)]);
+    expect(splitDeckIntoRows(deck)).toEqual([deck.slice(0, 2), deck.slice(2, 4), deck.slice(4)]);
   });
 
-  it("spreads every row within bounds without rotation or an arc", () => {
-    const first = getSpreadRowLayout(0, 39, 300);
-    const last = getSpreadRowLayout(38, 39, 300);
+  it("keeps cards and row gaps clamped, then leaves added sidebar width as whitespace", () => {
+    expect(getFanDeckMetrics(1)).toMatchObject({ cardWidth: 42, rowGap: 4 });
+    expect(getFanDeckMetrics(1000)).toMatchObject({ cardWidth: 76, rowGap: 10 });
+    expect(getFanDeckMetrics(600)).toEqual(getFanDeckMetrics(1000));
+  });
+
+  it("spreads every row from its actual remaining card count within bounds", () => {
+    const first = getSpreadRowLayout(0, 22, 300);
+    const last = getSpreadRowLayout(21, 22, 300);
+    const afterDraw = getSpreadRowLayout(20, 21, 300);
 
     expect(first.left).toBe(0);
     expect(last.left + last.cardWidth).toBeLessThanOrEqual(300);
+    expect(afterDraw.left + afterDraw.cardWidth).toBeLessThanOrEqual(300);
     expect(first.rotate).toBe(0);
     expect(last.rotate).toBe(0);
     expect(first.cardWidth).toBeGreaterThanOrEqual(42);
     expect(first.cardWidth).toBeLessThanOrEqual(76);
+  });
+
+  it("keeps remaining cards in their original row when a fan card is removed", () => {
+    const rows = splitDeckIntoRows(deck);
+    expect(reconcileFanRows(rows, [deck[0], deck[1], deck[3], deck[4]])).toEqual([
+      [deck[0], deck[1]],
+      [deck[3]],
+      [deck[4]],
+    ]);
   });
 });
 
@@ -89,6 +108,7 @@ describe("FAN draw mode", () => {
     expect(markup).toContain('data-deck-controls-header="true"');
     expect(markup).toContain('data-random-deck-toolbar="true"');
     expect(markup).toContain('aria-label="Shuffle all decks"');
+    expect(markup).toContain("w-[81px]");
     expect(markup).not.toContain("Shuffle All Decks");
     expect(markup).not.toContain("Add New Deck");
   });
@@ -115,12 +135,13 @@ describe("FAN draw mode", () => {
     expect(orderMarkup).not.toContain("Add New Deck");
   });
 
-  it("places the count in a dedicated FAN footer below the two rows", () => {
+  it("places the count in a dedicated FAN footer below the three rows", () => {
     const markup = renderToStaticMarkup(
       <FanDeck deck={deck} deckIndex={0} deckType="iching" totalCards={64} onDraw={() => undefined} />,
     );
 
     expect(markup).toContain('data-fan-count-footer="true"');
     expect(markup).toContain(">5 / 64<");
+    expect((markup.match(/data-fan-card-row="true"/g) || []).length).toBe(3);
   });
 });

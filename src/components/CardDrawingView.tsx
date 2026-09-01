@@ -1301,6 +1301,7 @@ export default function CardDrawingView({
       });
       if (error) throw error;
       didClearCanvasInDb = true;
+      toast.success("Canvas reset");
     } catch (error) {
       console.error("Reset failed:", error);
       if (!didClearCanvasInDb) {
@@ -2198,7 +2199,7 @@ export default function CardDrawingView({
     [persistWorkingCanvasState, setSpreadCards, workingCanvasId],
   );
 
-  const handleShuffle = async () => {
+  const handleShuffle = () => {
     if (!db) return;
 
     if (!supabase) {
@@ -2213,24 +2214,24 @@ export default function CardDrawingView({
     setDeckStates(optimisticDeckStates);
     persistWorkingCanvasState({ deckStates: optimisticDeckStates });
 
-    const activeType = deckType;
-    const inactiveType: DeckType = activeType === "iching" ? "tarot" : "iching";
+    const shuffleTargets: DeckType[] = ["iching", "tarot"];
     const persistShuffle = async (targetDeckType: DeckType) => {
-      const state = optimisticDeckStates[targetDeckType];
-      const { error } = await supabaseClient.rpc("shuffle_random_decks_v2", {
+      // Let the database shuffle its canonical remaining cards. The client can
+      // legitimately be behind after an interrupted draw, so its local card-id
+      // list must not be used as a strict server-side permutation payload.
+      const { data, error } = await supabaseClient.rpc("shuffle_random_decks", {
         p_deck_type: targetDeckType,
-        p_decks: state.randomDecks.map((cards, index) => ({
-          id: `deck-${index + 1}`,
-          cardIds: cards.map((card) => card.id),
-        })),
       });
       if (error) throw error;
+
+      applyDeckRpcResult(targetDeckType, data, deckCardSets[targetDeckType]);
     };
 
-    const activePromise = persistShuffle(activeType);
-    const inactivePromise = persistShuffle(inactiveType);
-    pendingShuffleRef.current[activeType] = activePromise;
-    pendingShuffleRef.current[inactiveType] = inactivePromise;
+    const shufflePromises = shuffleTargets.map((targetDeckType) => {
+      const promise = persistShuffle(targetDeckType);
+      pendingShuffleRef.current[targetDeckType] = promise;
+      return [targetDeckType, promise] as const;
+    });
 
     const settleShuffle = async (targetDeckType: DeckType, promise: Promise<unknown>) => {
       try {
@@ -2238,11 +2239,6 @@ export default function CardDrawingView({
       } catch (error) {
         console.error(`Shuffle ${targetDeckType} failed:`, error);
         await refreshDeckStateFromDb(targetDeckType, deckCardSets[targetDeckType]);
-        toast.error(
-          isQuotaExceededError(error)
-            ? `${targetDeckType === "tarot" ? "Tarot" : "I Ching"} decks were not shuffled in DB.`
-            : `Failed to shuffle ${targetDeckType === "tarot" ? "Tarot" : "I Ching"} decks`,
-        );
       } finally {
         if (pendingShuffleRef.current[targetDeckType] === promise) {
           delete pendingShuffleRef.current[targetDeckType];
@@ -2250,10 +2246,13 @@ export default function CardDrawingView({
       }
     };
 
-    await Promise.all([
-      settleShuffle(activeType, activePromise),
-      settleShuffle(inactiveType, inactivePromise),
-    ]);
+    // The deck state above is already shuffled synchronously. Persistence and
+    // canonical reconciliation continue in the background for both deck types.
+    void Promise.all(
+      shufflePromises.map(([targetDeckType, promise]) =>
+        settleShuffle(targetDeckType, promise),
+      ),
+    );
   };
 
   const updateDeckCount = async (newCount: number) => {
