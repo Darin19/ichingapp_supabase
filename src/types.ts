@@ -76,7 +76,7 @@ export interface SpreadCard {
   matchScore?: number;
 }
 
-export type DeckMode = "random" | "order";
+export type DeckMode = "random" | "fan" | "order";
 
 export interface CanvasMetadata {
   name?: string;

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { HEX_LINES } from "../constants";
 import goldenDragon from "../assets/images/golden_dragon.png";
 import tarotCover from "../assets/images/ady.jpg";
+import FanDeck, { clampFanDeckIndex } from "./FanDeck";
 
 interface DeckAreaProps {
   cards: DeckCard[];
@@ -52,6 +53,7 @@ export default function DeckArea({
     return saved ? parseInt(saved, 10) : 300;
   });
   const [isResizing, setIsResizing] = useState(false);
+  const [activeFanDeckIndex, setActiveFanDeckIndex] = useState(0);
 
   useEffect(() => {
     localStorage.setItem("deck-sidebar-width", sidebarWidth.toString());
@@ -95,6 +97,18 @@ export default function DeckArea({
 
   const isTarotDeck = deckType === "tarot";
   const totalCards = cards.length;
+  const usesRandomDecks = mode === "random" || mode === "fan";
+  const selectedFanDeckIndex = clampFanDeckIndex(
+    activeFanDeckIndex,
+    randomDecks.length,
+  );
+  const selectedFanDeck = randomDecks[selectedFanDeckIndex] || [];
+
+  useEffect(() => {
+    setActiveFanDeckIndex((currentIndex) =>
+      clampFanDeckIndex(currentIndex, randomDecks.length),
+    );
+  }, [randomDecks.length]);
 
   const filteredCards = cards.filter(
     (c) =>
@@ -146,12 +160,20 @@ export default function DeckArea({
           </div>
           <div className="bg-[#f8f9fa] p-1 rounded-xl border border-[#e2e8f0] flex gap-1">
             <Button
+              variant={mode === "fan" ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => onModeChange("fan")}
+              className={`flex-1 h-8 text-[12px] leading-[15px] rounded-lg transition-all font-bold uppercase tracking-wider ${mode === "fan" ? "bg-white text-[#166db0] shadow-sm border-[#e2e8f0]" : "text-[#495360] hover:text-[#0f172a]"}`}
+            >
+              Fan
+            </Button>
+            <Button
               variant={mode === "random" ? "secondary" : "ghost"}
               size="sm"
               onClick={() => onModeChange("random")}
               className={`flex-1 h-8 text-[12px] leading-[15px] rounded-lg transition-all font-bold uppercase tracking-wider ${mode === "random" ? "bg-white text-[#166db0] shadow-sm border-[#e2e8f0]" : "text-[#495360] hover:text-[#0f172a]"}`}
             >
-              Random
+              Top
             </Button>
             <Button
               variant={mode === "order" ? "secondary" : "ghost"}
@@ -164,7 +186,7 @@ export default function DeckArea({
           </div>
         </div>
 
-        {mode === "random" ? (
+        {usesRandomDecks ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between bg-[#f8f9fa] p-1.5 rounded-xl border border-[#e2e8f0]">
               <span className="text-[12px] font-bold text-[#000000] uppercase tracking-wider pl-2">
@@ -214,71 +236,97 @@ export default function DeckArea({
 
       <ScrollArea className="flex-1 min-h-0 h-full">
         <div className="p-6 space-y-6 relative">
-          {mode === "random" ? (
+          {usesRandomDecks ? (
             <div className="space-y-4">
-              {randomDecks.map((deck, i) => (
-                <div
-                  key={i}
-                  onClick={() =>
-                    deck.length > 0 && onDraw(deck[0].id, 150, 150, i)
-                  }
-                  className="group bg-white border border-[#e2e8f0] rounded-2xl p-5 cursor-grab active:cursor-grabbing hover:border-[#166db0] hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
-                >
-                  <div
-                    className={`h-28 ${isTarotDeck ? "bg-[#241b2f]" : "bg-[#020617]"} border border-[#1e293b] rounded-xl mb-4 relative overflow-hidden group-hover:shadow-lg group-hover:shadow-yellow-500/20 flex items-center justify-center`}
-                  >
-                    {/* CSS Stars for sharpness */}
-                    <div className="deck-stars-bg absolute inset-0 opacity-30 pointer-events-none" />
-
-                    {/* Starry Sky Background Image */}
-                    <img
-                      src={isTarotDeck ? tarotCover : goldenDragon}
-                      alt={
-                        isTarotDeck
-                          ? "Tarot deck cover"
-                          : "Golden Dragon Starry Sky"
-                      }
-                      className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100"
-                      referrerPolicy="no-referrer"
-                    />
-
-                    {/* Nebula/Glow effect */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 via-transparent to-transparent" />
-
-                    <div className="absolute top-2 right-2">
-                      <Sparkles className="w-3.5 h-3.5 text-white opacity-60" />
-                    </div>
-
+              {mode === "fan" ? (
+                <div className="space-y-3">
+                  {randomDecks.length > 1 && (
                     <div
-                      className={`${isTarotDeck ? "hidden" : "text-6xl"} relative z-10 opacity-90 group-hover:opacity-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] text-white`}
+                      aria-label="Choose a fan deck"
+                      className="flex items-center gap-1 overflow-x-auto pb-1"
                     >
-                      ☯
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-end">
-                    <div>
-                      <div className="text-sm font-extrabold text-[#0f172a]">
-                        {isTarotDeck ? "Tarot" : "Deck"} {i + 1}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[11px] font-bold text-[#495360] uppercase tracking-wider mb-0 leading-tight">
-                        Cards
-                      </div>
-                      <div className="text-[15px] font-mono text-[#166db0] font-black leading-tight">
-                        {deck.length} / {totalCards}
-                      </div>
-                    </div>
-                  </div>
-                  {deck.length === 0 && (
-                    <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-[#ef4444] uppercase tracking-widest border border-[#ef4444] px-2 py-1 rounded">
-                        Empty
-                      </span>
+                      {randomDecks.map((deck, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          aria-pressed={index === selectedFanDeckIndex}
+                          onClick={() => setActiveFanDeckIndex(index)}
+                          className={`shrink-0 border-b-2 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#166db0] ${index === selectedFanDeckIndex ? "border-[#166db0] text-[#166db0]" : "border-transparent text-[#64748b] hover:text-[#0f172a]"}`}
+                        >
+                          Deck {index + 1}
+                          <span className="ml-1 tabular-nums text-[#94a3b8]">
+                            {deck.length}
+                          </span>
+                        </button>
+                      ))}
                     </div>
                   )}
+                  <FanDeck
+                    deck={selectedFanDeck}
+                    deckIndex={selectedFanDeckIndex}
+                    deckType={deckType}
+                    totalCards={totalCards}
+                    onDraw={onDraw}
+                  />
                 </div>
-              ))}
+              ) : (
+                randomDecks.map((deck, i) => (
+                  <div
+                    key={i}
+                    onClick={() =>
+                      deck.length > 0 && onDraw(deck[0].id, 150, 150, i)
+                    }
+                    className="group bg-white border border-[#e2e8f0] rounded-2xl p-5 cursor-grab active:cursor-grabbing hover:border-[#166db0] hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
+                  >
+                    <div
+                      className={`h-28 ${isTarotDeck ? "bg-[#241b2f]" : "bg-[#020617]"} border border-[#1e293b] rounded-xl mb-4 relative overflow-hidden group-hover:shadow-lg group-hover:shadow-yellow-500/20 flex items-center justify-center`}
+                    >
+                      <div className="deck-stars-bg absolute inset-0 opacity-30 pointer-events-none" />
+                      <img
+                        src={isTarotDeck ? tarotCover : goldenDragon}
+                        alt={
+                          isTarotDeck
+                            ? "Tarot deck cover"
+                            : "Golden Dragon Starry Sky"
+                        }
+                        className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 via-transparent to-transparent" />
+                      <div className="absolute top-2 right-2">
+                        <Sparkles className="w-3.5 h-3.5 text-white opacity-60" />
+                      </div>
+                      <div
+                        className={`${isTarotDeck ? "hidden" : "text-6xl"} relative z-10 opacity-90 group-hover:opacity-100 drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] text-white`}
+                      >
+                        ☯
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <div className="text-sm font-extrabold text-[#0f172a]">
+                          {isTarotDeck ? "Tarot" : "Deck"} {i + 1}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[11px] font-bold text-[#495360] uppercase tracking-wider mb-0 leading-tight">
+                          Cards
+                        </div>
+                        <div className="text-[15px] font-mono text-[#166db0] font-black leading-tight">
+                          {deck.length} / {totalCards}
+                        </div>
+                      </div>
+                    </div>
+                    {deck.length === 0 && (
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-[#ef4444] uppercase tracking-widest border border-[#ef4444] px-2 py-1 rounded">
+                          Empty
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
               <Button
                 variant="ghost"
                 className="w-full border-2 border-dashed border-[#e2e8f0] text-[#495360] text-xs h-12 rounded-2xl hover:bg-[#f8f9fa] hover:text-[#0f172a] hover:border-[#166db0]/50 transition-all font-bold uppercase tracking-wider"
