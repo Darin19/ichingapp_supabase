@@ -285,7 +285,7 @@ export default function DeckArea({
             {usesRandomDecks ? (
               <div
                 data-random-deck-list="true"
-                className="space-y-2 -translate-y-[6px]"
+                className="space-y-2 -translate-y-[16px]"
               >
                 {randomDecks.map((deck, i) => (
                   <div
@@ -294,7 +294,7 @@ export default function DeckArea({
                     onClick={() =>
                       deck.length > 0 && onDraw(deck[0].id, 150, 150, i)
                     }
-                    className="group bg-white px-5 pt-4 pb-[14px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
+                    className="group bg-white border border-[#e2e8f0]/70 rounded-xl px-5 pt-4 pb-[6px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
                   >
                     <div
                       className={`h-28 ${isTarotDeck ? "bg-[#241b2f]" : "bg-[#020617]"} border border-[#1e293b] rounded-xl mb-4 relative overflow-hidden group-hover:shadow-lg group-hover:shadow-yellow-500/20 flex items-center justify-center`}
@@ -320,7 +320,10 @@ export default function DeckArea({
                         ☯
                       </div>
                     </div>
-                    <div className="flex justify-between items-end">
+                    <div
+                      data-random-deck-summary="true"
+                      className="flex justify-between items-end -translate-y-[4px]"
+                    >
                       <div>
                         <div className="text-sm font-extrabold text-[#0f172a]">
                           {isTarotDeck ? "Tarot" : "Deck"} {i + 1}
