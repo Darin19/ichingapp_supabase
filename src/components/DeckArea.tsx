@@ -258,11 +258,13 @@ export default function DeckArea({
                   type="button"
                   aria-pressed={index === selectedFanDeckIndex}
                   onClick={() => setActiveFanDeckIndex(index)}
-                  className={`shrink-0 border-b-2 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#166db0] ${index === selectedFanDeckIndex ? "border-[#166db0] text-[#166db0]" : "border-transparent text-[#64748b] hover:text-[#0f172a]"}`}
+                  className={`shrink-0 border-b-2 px-2 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#166db0] ${index === selectedFanDeckIndex ? "border-[#166db0] text-[#166db0]" : "border-transparent text-[#64748b] hover:text-[#0f172a]"}`}
                 >
                   Deck {index + 1}
-                  <span className="ml-1 tabular-nums text-[#94a3b8]">
-                    {deck.length}
+                  <span
+                    className={`ml-1 tabular-nums ${index === selectedFanDeckIndex ? "text-black font-black" : "text-[#94a3b8]"}`}
+                  >
+                    ({deck.length})
                   </span>
                 </button>
               ))}
@@ -420,20 +422,6 @@ export default function DeckArea({
           )}
         </div>
       </ScrollArea>
-      )}
-
-      {isFanMode && (
-        <div
-          data-deck-controls-count="true"
-          className="pointer-events-none absolute bottom-3 left-4 z-10 flex items-baseline gap-1.5"
-        >
-          <span className="text-[13px] font-bold tabular-nums leading-none text-[#166db0]">
-            {selectedFanDeck.length}/{totalCards}
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider leading-none text-[#64748b]">
-            {isTarotDeck ? "TAROT" : "I CHING"}
-          </span>
-        </div>
       )}
 
       {/* Resize Handle */}

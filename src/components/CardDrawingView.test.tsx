@@ -64,7 +64,7 @@ describe("Reset Canvas", () => {
     );
 
     expect(markup).toContain('data-fan-deck-content="true"');
-    expect(markup).toContain('data-deck-controls-count="true"');
+    expect(markup).not.toContain('data-deck-controls-count="true"');
     expect(markup).toContain(">iChing<");
   });
 

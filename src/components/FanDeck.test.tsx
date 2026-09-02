@@ -103,17 +103,18 @@ describe("FAN draw mode", () => {
     expect(markup).toContain(">Order<");
     expect(markup).toContain('aria-label="Draw card 4 of 5 from fan 1"');
     expect(markup).not.toContain('aria-label="Draw card 4 of 5 from fan 2"');
-    expect(markup).toContain(">5/5<");
     expect(markup).toContain('data-fan-deck-content="true"');
-    expect(markup).toContain('data-deck-controls-count="true"');
-    expect(markup).toContain("bottom-3 left-4");
-    expect(markup).toContain("pb-14");
+    expect(markup).not.toContain('data-deck-controls-count="true"');
     expect(markup).toContain('data-fan-card-row="true" class="-translate-y-0.5"');
-    expect(markup).toContain('data-fan-rows-container="true"');
+    expect(markup).toContain('data-fan-rows-container="true" class="relative flex min-w-0 flex-col pt-1"');
     expect(markup).not.toContain("rounded-md bg-white/95");
     expect(markup).not.toContain("shadow-[0_6px_12px_rgba(15,23,42,0.22)]");
     expect(markup).toContain('data-deck-controls-header="true"');
     expect(markup).toContain('data-random-deck-toolbar="true"');
+    expect(markup).toContain('text-[11px] font-bold uppercase tracking-wider');
+    expect(markup).toContain('text-black font-black');
+    expect(markup).toContain("Deck 1<span");
+    expect(markup).toContain(">(5)</span>");
     expect(markup).toContain('aria-label="Shuffle all decks"');
     expect(markup).toContain("w-[81px]");
     expect(markup).not.toContain("Shuffle All Decks");
@@ -142,7 +143,7 @@ describe("FAN draw mode", () => {
     expect(orderMarkup).not.toContain("Add New Deck");
   });
 
-  it("anchors the full I Ching and Tarot counts at the bottom-left of Deck Controls", () => {
+  it("keeps full I Ching and Tarot FAN layouts free of the removed count", () => {
     const localStorage = { getItem: () => null, setItem: () => undefined };
     Object.assign(globalThis, { localStorage });
     const iChingCards = Array.from({ length: 64 }, (_, index) => ({
@@ -182,15 +183,8 @@ describe("FAN draw mode", () => {
       />,
     );
 
-    expect(iChingMarkup).toContain('data-deck-controls-count="true"');
-    expect(iChingMarkup).toContain(">64/64<");
-    expect(iChingMarkup).toContain(">I CHING<");
-    expect(tarotMarkup).toContain('data-deck-controls-count="true"');
-    expect(tarotMarkup).toContain(">78/78<");
-    expect(tarotMarkup).toContain(">TAROT<");
-    expect(tarotMarkup).toContain("text-[13px]");
-    expect(tarotMarkup).toContain("bottom-3 left-4");
-    expect(tarotMarkup).toContain("pb-14");
+    expect(iChingMarkup).not.toContain('data-deck-controls-count="true"');
+    expect(tarotMarkup).not.toContain('data-deck-controls-count="true"');
     expect((tarotMarkup.match(/data-fan-card-row="true"/g) || []).length).toBe(3);
   });
 });
