@@ -280,17 +280,18 @@ export default function DeckArea({
           </div>
         </div>
       ) : (
-      <ScrollArea className="flex-1 min-h-0 h-full">
-        <div className="p-6 space-y-6 relative">
-          {usesRandomDecks ? (
-            <div className="space-y-4">
-              {randomDecks.map((deck, i) => (
+        <ScrollArea className="flex-1 min-h-0 h-full">
+          <div className="p-6 space-y-6 relative">
+            {usesRandomDecks ? (
+              <div data-random-deck-list="true" className="space-y-2">
+                {randomDecks.map((deck, i) => (
                   <div
                     key={i}
+                    data-random-deck-card="true"
                     onClick={() =>
                       deck.length > 0 && onDraw(deck[0].id, 150, 150, i)
                     }
-                    className="group bg-white border border-[#e2e8f0] rounded-2xl p-5 cursor-grab active:cursor-grabbing hover:border-[#166db0] hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
+                    className="group bg-white px-5 pt-5 pb-[18px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
                   >
                     <div
                       className={`h-28 ${isTarotDeck ? "bg-[#241b2f]" : "bg-[#020617]"} border border-[#1e293b] rounded-xl mb-4 relative overflow-hidden group-hover:shadow-lg group-hover:shadow-yellow-500/20 flex items-center justify-center`}
@@ -323,9 +324,6 @@ export default function DeckArea({
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-[11px] font-bold text-[#495360] uppercase tracking-wider mb-0 leading-tight">
-                          Cards
-                        </div>
                         <div className="text-[15px] font-mono text-[#166db0] font-black leading-tight">
                           {deck.length} / {totalCards}
                         </div>
@@ -339,89 +337,89 @@ export default function DeckArea({
                       </div>
                     )}
                   </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4">
-              {filteredCards.map((card) => {
-                if (isTarotDeck) {
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-4">
+                {filteredCards.map((card) => {
+                  if (isTarotDeck) {
+                    return (
+                      <motion.div
+                        key={card.id}
+                        whileHover={{ y: -2, scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => onDraw(card.id, 150, 150)}
+                        className="group flex h-[245px] cursor-pointer flex-col items-center overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white p-2.5 transition-all hover:border-[#166db0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+                      >
+                        <div className="relative flex min-h-0 flex-1 items-center justify-center">
+                          <img
+                            src={card.imageUrl || card.imgPath}
+                            alt={card.englishName}
+                            className="h-full max-w-full rounded-[7px] object-contain shadow-[0_10px_22px_rgba(15,23,42,0.18)]"
+                            draggable={false}
+                          />
+                          <div className="absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-white/95 px-2 text-[11px] font-black leading-none text-[#166db0] shadow-md ring-1 ring-[#e2e8f0]">
+                            {card.number}
+                          </div>
+                        </div>
+                        <div className="w-full px-1 pt-2 text-center">
+                          <div className="truncate text-[13px] font-extrabold leading-tight text-[#0f172a]">
+                            {card.vietnameseName}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  }
+
+                  const hexLines = HEX_LINES[card.number] || [1, 1, 1, 1, 1, 1];
                   return (
                     <motion.div
                       key={card.id}
                       whileHover={{ y: -2, scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => onDraw(card.id, 150, 150)}
-                      className="group flex h-[245px] cursor-pointer flex-col items-center overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white p-2.5 transition-all hover:border-[#166db0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+                      className="bg-white border border-[#e2e8f0] p-3 rounded-2xl cursor-pointer hover:border-[#166db0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all flex flex-col items-center justify-between group relative overflow-hidden h-[160px]"
                     >
-                      <div className="relative flex min-h-0 flex-1 items-center justify-center">
-                        <img
-                          src={card.imageUrl || card.imgPath}
-                          alt={card.englishName}
-                          className="h-full max-w-full rounded-[7px] object-contain shadow-[0_10px_22px_rgba(15,23,42,0.18)]"
-                          draggable={false}
-                        />
-                        <div className="absolute left-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-white/95 px-2 text-[11px] font-black leading-none text-[#166db0] shadow-md ring-1 ring-[#e2e8f0]">
-                          {card.number}
-                        </div>
+                      <div className="text-[14px] font-bold text-[#7a6e6e] relative z-10 -top-[2px] transition-colors group-hover:text-[#004c9f]">
+                        {String(card.number).padStart(2, "0")}
                       </div>
-                      <div className="w-full px-1 pt-2 text-center">
-                        <div className="truncate text-[13px] font-extrabold leading-tight text-[#0f172a]">
+
+                      {/* Hexagram Visual */}
+                      <div className="w-[50px] h-[54px] flex flex-col-reverse justify-center gap-[5px] mt-0 mb-1 relative z-10 -translate-y-[3.5px]">
+                        {hexLines.map((line, idx) => (
+                          <div
+                            key={idx}
+                            className="w-full h-[4.5px] flex items-center gap-[10px] shrink-0"
+                          >
+                            {line === 1 ? (
+                              <div className="w-full h-[4.5px] bg-[#000000] rounded-sm transition-colors group-hover:bg-[#004c9f]" />
+                            ) : (
+                              <>
+                                <div className="w-[20px] h-[4.5px] bg-[#000000] rounded-sm transition-colors group-hover:bg-[#004c9f]" />
+                                <div className="w-[20px] h-[4.5px] bg-[#000000] rounded-sm transition-colors group-hover:bg-[#004c9f]" />
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="text-center w-full space-y-[2px] relative z-10 -translate-y-[4px]">
+                        <div className="font-extrabold text-[13.2px] text-[#2f1616] truncate leading-tight w-full transition-colors group-hover:text-[#000000] -translate-y-[1px]">
                           {card.vietnameseName}
+                        </div>
+                        <div
+                          className={`text-[10.5px] text-[#7a6e6e] truncate font-bold uppercase transition-colors group-hover:text-[#004c9f] w-full text-center tracking-wider leading-tight mt-[3px] translate-y-[1px]`}
+                        >
+                          {card.englishName}
                         </div>
                       </div>
                     </motion.div>
                   );
-                }
-
-                const hexLines = HEX_LINES[card.number] || [1, 1, 1, 1, 1, 1];
-                return (
-                  <motion.div
-                    key={card.id}
-                    whileHover={{ y: -2, scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => onDraw(card.id, 150, 150)}
-                    className="bg-white border border-[#e2e8f0] p-3 rounded-2xl cursor-pointer hover:border-[#166db0] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all flex flex-col items-center justify-between group relative overflow-hidden h-[160px]"
-                  >
-                    <div className="text-[14px] font-bold text-[#7a6e6e] relative z-10 -top-[2px] transition-colors group-hover:text-[#004c9f]">
-                      {String(card.number).padStart(2, "0")}
-                    </div>
-
-                    {/* Hexagram Visual */}
-                    <div className="w-[50px] h-[54px] flex flex-col-reverse justify-center gap-[5px] mt-0 mb-1 relative z-10 -translate-y-[3.5px]">
-                      {hexLines.map((line, idx) => (
-                        <div
-                          key={idx}
-                          className="w-full h-[4.5px] flex items-center gap-[10px] shrink-0"
-                        >
-                          {line === 1 ? (
-                            <div className="w-full h-[4.5px] bg-[#000000] rounded-sm transition-colors group-hover:bg-[#004c9f]" />
-                          ) : (
-                            <>
-                              <div className="w-[20px] h-[4.5px] bg-[#000000] rounded-sm transition-colors group-hover:bg-[#004c9f]" />
-                              <div className="w-[20px] h-[4.5px] bg-[#000000] rounded-sm transition-colors group-hover:bg-[#004c9f]" />
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="text-center w-full space-y-[2px] relative z-10 -translate-y-[4px]">
-                      <div className="font-extrabold text-[13.2px] text-[#2f1616] truncate leading-tight w-full transition-colors group-hover:text-[#000000] -translate-y-[1px]">
-                        {card.vietnameseName}
-                      </div>
-                      <div
-                        className={`text-[10.5px] text-[#7a6e6e] truncate font-bold uppercase transition-colors group-hover:text-[#004c9f] w-full text-center tracking-wider leading-tight mt-[3px] translate-y-[1px]`}
-                      >
-                        {card.englishName}
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+                })}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
       )}
 
       {/* Resize Handle */}

@@ -30,4 +30,22 @@ describe("LabelMasterView", () => {
       'data-label-group-count="true" aria-label="1 label"',
     );
   });
+
+  it("centers the empty label-group state in the labels area", () => {
+    const markup = renderToStaticMarkup(
+      <LabelMasterView
+        groups={[{ id: "target", name: "Target", sortOrder: 0 }]}
+        labels={[]}
+        setGroups={() => undefined}
+        setLabels={() => undefined}
+        onSyncMasterData={() => undefined}
+        isSyncingMasterData={false}
+        onMasterDataWritten={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain(
+      'data-label-group-empty-state="true" class="col-span-full flex min-h-full w-full flex-col items-center justify-center gap-4 text-center"',
+    );
+  });
 });

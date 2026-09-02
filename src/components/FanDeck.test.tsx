@@ -32,12 +32,30 @@ describe("getFanCardSelection", () => {
 
 describe("three-row FAN layout", () => {
   it("splits Tarot, I Ching, and odd decks into three balanced rows with the logical order intact", () => {
-    const tarot = Array.from({ length: 78 }, (_, index) => ({ ...deck[0], id: `t-${index}` }));
-    const iching = Array.from({ length: 64 }, (_, index) => ({ ...deck[0], id: `i-${index}` }));
+    const tarot = Array.from({ length: 78 }, (_, index) => ({
+      ...deck[0],
+      id: `t-${index}`,
+    }));
+    const iching = Array.from({ length: 64 }, (_, index) => ({
+      ...deck[0],
+      id: `i-${index}`,
+    }));
 
-    expect(splitDeckIntoRows(tarot)).toEqual([tarot.slice(0, 26), tarot.slice(26, 52), tarot.slice(52)]);
-    expect(splitDeckIntoRows(iching)).toEqual([iching.slice(0, 22), iching.slice(22, 43), iching.slice(43)]);
-    expect(splitDeckIntoRows(deck)).toEqual([deck.slice(0, 2), deck.slice(2, 4), deck.slice(4)]);
+    expect(splitDeckIntoRows(tarot)).toEqual([
+      tarot.slice(0, 26),
+      tarot.slice(26, 52),
+      tarot.slice(52),
+    ]);
+    expect(splitDeckIntoRows(iching)).toEqual([
+      iching.slice(0, 22),
+      iching.slice(22, 43),
+      iching.slice(43),
+    ]);
+    expect(splitDeckIntoRows(deck)).toEqual([
+      deck.slice(0, 2),
+      deck.slice(2, 4),
+      deck.slice(4),
+    ]);
   });
 
   it("keeps cards and two-pixel tighter row gaps clamped, then leaves added sidebar width as whitespace", () => {
@@ -62,11 +80,9 @@ describe("three-row FAN layout", () => {
 
   it("keeps remaining cards in their original row when a fan card is removed", () => {
     const rows = splitDeckIntoRows(deck);
-    expect(reconcileFanRows(rows, [deck[0], deck[1], deck[3], deck[4]])).toEqual([
-      [deck[0], deck[1]],
-      [deck[3]],
-      [deck[4]],
-    ]);
+    expect(
+      reconcileFanRows(rows, [deck[0], deck[1], deck[3], deck[4]]),
+    ).toEqual([[deck[0], deck[1]], [deck[3]], [deck[4]]]);
   });
 });
 
@@ -106,13 +122,15 @@ describe("FAN draw mode", () => {
     expect(markup).toContain('data-fan-deck-content="true"');
     expect(markup).not.toContain('data-deck-controls-count="true"');
     expect(markup).not.toContain('class="-translate-y-[5px]"');
-    expect(markup).toContain('data-fan-rows-container="true" class="relative flex min-w-0 flex-col pt-1 -translate-y-[6px]"');
+    expect(markup).toContain(
+      'data-fan-rows-container="true" class="relative flex min-w-0 flex-col pt-1 -translate-y-[6px]"',
+    );
     expect(markup).not.toContain("rounded-md bg-white/95");
     expect(markup).not.toContain("shadow-[0_6px_12px_rgba(15,23,42,0.22)]");
     expect(markup).toContain('data-deck-controls-header="true"');
     expect(markup).toContain('data-random-deck-toolbar="true"');
-    expect(markup).toContain('text-[11px] font-bold uppercase tracking-wider');
-    expect(markup).toContain('text-black font-black');
+    expect(markup).toContain("text-[11px] font-bold uppercase tracking-wider");
+    expect(markup).toContain("text-black font-black");
     expect(markup).toContain("Deck 1<span");
     expect(markup).toContain(">(5)</span>");
     expect(markup).toContain('aria-label="Shuffle all decks"');
@@ -126,14 +144,47 @@ describe("FAN draw mode", () => {
     Object.assign(globalThis, { localStorage });
 
     const topMarkup = renderToStaticMarkup(
-      <DeckArea {...{ cards: deck, deckType: "iching", onDeckTypeChange: () => undefined, mode: "random", onModeChange: () => undefined, onDraw: () => undefined, randomDecks: [deck], deckCount: 1, onShuffle: () => undefined, onUpdateDeckCount: () => undefined }} />,
+      <DeckArea
+        {...{
+          cards: deck,
+          deckType: "iching",
+          onDeckTypeChange: () => undefined,
+          mode: "random",
+          onModeChange: () => undefined,
+          onDraw: () => undefined,
+          randomDecks: [deck],
+          deckCount: 1,
+          onShuffle: () => undefined,
+          onUpdateDeckCount: () => undefined,
+        }}
+      />,
     );
     const orderMarkup = renderToStaticMarkup(
-      <DeckArea {...{ cards: deck, deckType: "iching", onDeckTypeChange: () => undefined, mode: "order", onModeChange: () => undefined, onDraw: () => undefined, randomDecks: [deck], deckCount: 1, onShuffle: () => undefined, onUpdateDeckCount: () => undefined }} />,
+      <DeckArea
+        {...{
+          cards: deck,
+          deckType: "iching",
+          onDeckTypeChange: () => undefined,
+          mode: "order",
+          onModeChange: () => undefined,
+          onDraw: () => undefined,
+          randomDecks: [deck],
+          deckCount: 1,
+          onShuffle: () => undefined,
+          onUpdateDeckCount: () => undefined,
+        }}
+      />,
     );
 
     expect(topMarkup).toContain('data-deck-controls-header="true"');
     expect(topMarkup).toContain('data-random-deck-toolbar="true"');
+    expect(topMarkup).toContain(
+      'data-random-deck-list="true" class="space-y-2"',
+    );
+    expect(topMarkup).toContain(
+      'data-random-deck-card="true" class="group bg-white px-5 pt-5 pb-[18px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"',
+    );
+    expect(topMarkup).not.toContain(">Cards<");
     expect(topMarkup).toContain('aria-label="Shuffle all decks"');
     expect(topMarkup).not.toContain("Shuffle All Decks");
     expect(topMarkup).not.toContain("Add New Deck");
@@ -185,6 +236,8 @@ describe("FAN draw mode", () => {
 
     expect(iChingMarkup).not.toContain('data-deck-controls-count="true"');
     expect(tarotMarkup).not.toContain('data-deck-controls-count="true"');
-    expect((tarotMarkup.match(/data-fan-card-row="true"/g) || []).length).toBe(3);
+    expect((tarotMarkup.match(/data-fan-card-row="true"/g) || []).length).toBe(
+      3,
+    );
   });
 });

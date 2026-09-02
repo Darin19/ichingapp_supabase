@@ -967,7 +967,10 @@ export default function LabelMasterView({
                   </div>
                 ))}
                 {groupLabels.length === 0 && (
-                  <div className="col-span-full py-32 text-center flex flex-col items-center gap-4">
+                  <div
+                    data-label-group-empty-state="true"
+                    className="col-span-full flex min-h-full w-full flex-col items-center justify-center gap-4 text-center"
+                  >
                     <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-md border border-[#e2e8f0]">
                       <Plus className="w-8 h-8 opacity-20" />
                     </div>
