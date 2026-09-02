@@ -283,7 +283,10 @@ export default function DeckArea({
         <ScrollArea className="flex-1 min-h-0 h-full">
           <div className="p-6 space-y-6 relative">
             {usesRandomDecks ? (
-              <div data-random-deck-list="true" className="space-y-2">
+              <div
+                data-random-deck-list="true"
+                className="space-y-2 -translate-y-[6px]"
+              >
                 {randomDecks.map((deck, i) => (
                   <div
                     key={i}
@@ -291,7 +294,7 @@ export default function DeckArea({
                     onClick={() =>
                       deck.length > 0 && onDraw(deck[0].id, 150, 150, i)
                     }
-                    className="group bg-white px-5 pt-5 pb-[18px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
+                    className="group bg-white px-5 pt-4 pb-[14px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"
                   >
                     <div
                       className={`h-28 ${isTarotDeck ? "bg-[#241b2f]" : "bg-[#020617]"} border border-[#1e293b] rounded-xl mb-4 relative overflow-hidden group-hover:shadow-lg group-hover:shadow-yellow-500/20 flex items-center justify-center`}

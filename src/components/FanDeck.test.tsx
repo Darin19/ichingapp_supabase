@@ -179,10 +179,10 @@ describe("FAN draw mode", () => {
     expect(topMarkup).toContain('data-deck-controls-header="true"');
     expect(topMarkup).toContain('data-random-deck-toolbar="true"');
     expect(topMarkup).toContain(
-      'data-random-deck-list="true" class="space-y-2"',
+      'data-random-deck-list="true" class="space-y-2 -translate-y-[6px]"',
     );
     expect(topMarkup).toContain(
-      'data-random-deck-card="true" class="group bg-white px-5 pt-5 pb-[18px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"',
+      'data-random-deck-card="true" class="group bg-white px-5 pt-4 pb-[14px] cursor-grab active:cursor-grabbing hover:shadow-lg hover:shadow-[#166db0]/5 relative overflow-hidden"',
     );
     expect(topMarkup).not.toContain(">Cards<");
     expect(topMarkup).toContain('aria-label="Shuffle all decks"');
