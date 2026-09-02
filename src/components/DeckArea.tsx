@@ -243,11 +243,10 @@ export default function DeckArea({
       </header>
 
       {isFanMode ? (
-        <>
-          <div
-            data-fan-deck-content="true"
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-2"
-          >
+        <div
+          data-fan-deck-content="true"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-2 pb-14"
+        >
           {randomDecks.length > 1 && (
             <div
               aria-label="Choose a fan deck"
@@ -269,7 +268,7 @@ export default function DeckArea({
               ))}
             </div>
           )}
-          <div className="pt-1">
+          <div className="min-h-0 flex-1 pt-1">
             <FanDeck
               deck={selectedFanDeck}
               deckIndex={selectedFanDeckIndex}
@@ -277,21 +276,7 @@ export default function DeckArea({
               onDraw={onDraw}
             />
           </div>
-          </div>
-          <div
-            data-deck-controls-count="true"
-            className="shrink-0 px-4 pt-1 pb-3"
-          >
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[13px] font-bold tabular-nums leading-none text-[#166db0]">
-                {selectedFanDeck.length}/{totalCards}
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider leading-none text-[#64748b]">
-                {isTarotDeck ? "TAROT" : "I CHING"}
-              </span>
-            </div>
-          </div>
-        </>
+        </div>
       ) : (
       <ScrollArea className="flex-1 min-h-0 h-full">
         <div className="p-6 space-y-6 relative">
@@ -435,6 +420,20 @@ export default function DeckArea({
           )}
         </div>
       </ScrollArea>
+      )}
+
+      {isFanMode && (
+        <div
+          data-deck-controls-count="true"
+          className="pointer-events-none absolute bottom-3 left-4 z-10 flex items-baseline gap-1.5"
+        >
+          <span className="text-[13px] font-bold tabular-nums leading-none text-[#166db0]">
+            {selectedFanDeck.length}/{totalCards}
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-wider leading-none text-[#64748b]">
+            {isTarotDeck ? "TAROT" : "I CHING"}
+          </span>
+        </div>
       )}
 
       {/* Resize Handle */}

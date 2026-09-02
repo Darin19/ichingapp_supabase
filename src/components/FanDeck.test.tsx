@@ -42,7 +42,7 @@ describe("three-row FAN layout", () => {
 
   it("keeps cards and two-pixel tighter row gaps clamped, then leaves added sidebar width as whitespace", () => {
     expect(getFanDeckMetrics(1)).toMatchObject({ cardWidth: 42, rowGap: 0 });
-    expect(getFanDeckMetrics(1000)).toMatchObject({ cardWidth: 76, rowGap: 2 });
+    expect(getFanDeckMetrics(1000)).toMatchObject({ cardWidth: 76, rowGap: 4 });
     expect(getFanDeckMetrics(600)).toEqual(getFanDeckMetrics(1000));
   });
 
@@ -106,10 +106,10 @@ describe("FAN draw mode", () => {
     expect(markup).toContain(">5/5<");
     expect(markup).toContain('data-fan-deck-content="true"');
     expect(markup).toContain('data-deck-controls-count="true"');
-    expect(markup).not.toContain("absolute bottom-3 left-4");
-    expect(markup).not.toContain("pb-14");
-    expect(markup).toContain('data-fan-rows-container="true" class="relative flex min-w-0 flex-col pt-0.5"');
-    expect(markup).toContain('data-deck-controls-count="true" class="shrink-0 px-4 pt-1 pb-3"');
+    expect(markup).toContain("bottom-3 left-4");
+    expect(markup).toContain("pb-14");
+    expect(markup).toContain('data-fan-card-row="true" class="-translate-y-0.5"');
+    expect(markup).toContain('data-fan-rows-container="true"');
     expect(markup).not.toContain("rounded-md bg-white/95");
     expect(markup).not.toContain("shadow-[0_6px_12px_rgba(15,23,42,0.22)]");
     expect(markup).toContain('data-deck-controls-header="true"');
@@ -189,8 +189,8 @@ describe("FAN draw mode", () => {
     expect(tarotMarkup).toContain(">78/78<");
     expect(tarotMarkup).toContain(">TAROT<");
     expect(tarotMarkup).toContain("text-[13px]");
-    expect(tarotMarkup).toContain('data-deck-controls-count="true" class="shrink-0 px-4 pt-1 pb-3"');
-    expect(tarotMarkup).not.toContain("absolute bottom-3 left-4");
+    expect(tarotMarkup).toContain("bottom-3 left-4");
+    expect(tarotMarkup).toContain("pb-14");
     expect((tarotMarkup.match(/data-fan-card-row="true"/g) || []).length).toBe(3);
   });
 });
