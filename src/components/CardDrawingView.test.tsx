@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { IChingCard } from "../types";
 import CardDrawingView, {
+  getZoomFromPercentageInput,
   getResetCanvasViewport,
   RESET_SUCCESS_TOAST_DURATION_MS,
 } from "./CardDrawingView";
@@ -76,5 +77,33 @@ describe("Reset Canvas", () => {
 
   it("keeps the successful reset notification visible for one second", () => {
     expect(RESET_SUCCESS_TOAST_DURATION_MS).toBe(1_000);
+  });
+
+  it("renders the zoom indicator as an editable control", () => {
+    Object.assign(globalThis, {
+      localStorage: { getItem: () => null, setItem: () => undefined },
+    });
+    const markup = renderToStaticMarkup(
+      <CardDrawingView
+        cards={[card]}
+        spreadCards={[]}
+        setSpreadCards={() => undefined}
+        labels={[]}
+        setLabels={() => undefined}
+        labelGroups={[]}
+        setLabelGroups={() => undefined}
+        user={null}
+        onMasterDataWritten={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Edit zoom percentage"');
+    expect(markup).toContain("Zoom: 100%");
+  });
+
+  it("converts an entered percentage to a clamped canvas zoom", () => {
+    expect(getZoomFromPercentageInput("125", 1)).toBe(1.25);
+    expect(getZoomFromPercentageInput("500", 1)).toBe(3);
+    expect(getZoomFromPercentageInput("", 1.25)).toBe(1.25);
   });
 });

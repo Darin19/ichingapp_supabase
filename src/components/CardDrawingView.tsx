@@ -451,6 +451,19 @@ const returnCardToDeckStates = (
 
 const clampCanvasZoom = (value: number) => Math.min(Math.max(value, 0.2), 3);
 
+export const getZoomFromPercentageInput = (
+  value: string,
+  fallbackZoom: number,
+) => {
+  const normalizedValue = value.trim().replace(/%$/, "");
+  if (!normalizedValue) return fallbackZoom;
+
+  const percentage = Number(normalizedValue);
+  return Number.isFinite(percentage)
+    ? clampCanvasZoom(percentage / 100)
+    : fallbackZoom;
+};
+
 const sanitizeOffset = (offset: CanvasOffset): CanvasOffset => ({
   x: Number.isFinite(offset.x) ? offset.x : DEFAULT_CANVAS_VIEWPORT.offset.x,
   y: Number.isFinite(offset.y) ? offset.y : DEFAULT_CANVAS_VIEWPORT.offset.y,
@@ -536,6 +549,8 @@ export default function CardDrawingView({
   const [canvasViewport, setCanvasViewport] = useState<CanvasViewport>(() =>
     getInitialCanvasViewport(),
   );
+  const [isZoomEditing, setIsZoomEditing] = useState(false);
+  const [zoomDraft, setZoomDraft] = useState("");
   const zoom = canvasViewport.zoom;
   const canvasOffset = canvasViewport.offset;
   const iChingCards = useMemo<IChingCard[]>(
@@ -635,9 +650,9 @@ export default function CardDrawingView({
   const workingCanvasMetaRef = useRef(workingCanvasMeta);
   const spreadCardsRef = useRef(spreadCards);
   const deckStatesRef = useRef(deckStates);
-  const pendingShuffleRef = useRef<
-    Partial<Record<DeckType, Promise<unknown>>>
-  >({});
+  const pendingShuffleRef = useRef<Partial<Record<DeckType, Promise<unknown>>>>(
+    {},
+  );
   const hasRestoredLocalWorkingStateRef = useRef(false);
   const skipNextWorkingStatePersistRef = useRef(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
@@ -691,6 +706,16 @@ export default function CardDrawingView({
       zoom: clampCanvasZoom(nextZoom),
     }));
   }, []);
+
+  const startZoomEditing = useCallback(() => {
+    setZoomDraft(String(Math.round(zoom * 100)));
+    setIsZoomEditing(true);
+  }, [zoom]);
+
+  const saveZoomPercentage = useCallback(() => {
+    setZoom(getZoomFromPercentageInput(zoomDraft, zoom));
+    setIsZoomEditing(false);
+  }, [setZoom, zoom, zoomDraft]);
 
   const setCanvasOffset = useCallback((nextOffset: CanvasOffset) => {
     setCanvasViewport((prev) => ({
@@ -1313,7 +1338,9 @@ export default function CardDrawingView({
       });
       if (error) throw error;
       didClearCanvasInDb = true;
-      toast.success("Canvas reset", { duration: RESET_SUCCESS_TOAST_DURATION_MS });
+      toast.success("Canvas reset", {
+        duration: RESET_SUCCESS_TOAST_DURATION_MS,
+      });
     } catch (error) {
       console.error("Reset failed:", error);
       if (!didClearCanvasInDb) {
@@ -2245,12 +2272,18 @@ export default function CardDrawingView({
       return [targetDeckType, promise] as const;
     });
 
-    const settleShuffle = async (targetDeckType: DeckType, promise: Promise<unknown>) => {
+    const settleShuffle = async (
+      targetDeckType: DeckType,
+      promise: Promise<unknown>,
+    ) => {
       try {
         await promise;
       } catch (error) {
         console.error(`Shuffle ${targetDeckType} failed:`, error);
-        await refreshDeckStateFromDb(targetDeckType, deckCardSets[targetDeckType]);
+        await refreshDeckStateFromDb(
+          targetDeckType,
+          deckCardSets[targetDeckType],
+        );
       } finally {
         if (pendingShuffleRef.current[targetDeckType] === promise) {
           delete pendingShuffleRef.current[targetDeckType];
@@ -2380,11 +2413,38 @@ export default function CardDrawingView({
             <RefreshCw className="w-5 h-5" />
           </Button>
         </div>
-        <div className="bg-white/80 backdrop-blur-sm border border-[#e2e8f0] px-3 py-1.5 rounded-full shadow-sm">
-          <span className="text-[12px] font-bold text-[#495360] uppercase tracking-widest">
-            Zoom: {Math.round(zoom * 100)}%
-          </span>
-        </div>
+        {isZoomEditing ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveZoomPercentage();
+            }}
+            className="bg-white/80 backdrop-blur-sm border border-[#166db0] px-2 py-1 rounded-full shadow-sm"
+          >
+            <Input
+              aria-label="Zoom percentage"
+              autoFocus
+              inputMode="decimal"
+              value={zoomDraft}
+              onChange={(event) => setZoomDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setIsZoomEditing(false);
+              }}
+              className="h-6 w-16 border-0 bg-transparent px-1 text-center text-[12px] font-bold text-[#495360] shadow-none focus-visible:ring-0"
+            />
+          </form>
+        ) : (
+          <button
+            type="button"
+            aria-label="Edit zoom percentage"
+            onClick={startZoomEditing}
+            className="bg-white/80 backdrop-blur-sm border border-[#e2e8f0] px-3 py-1.5 rounded-full shadow-sm transition-colors hover:border-[#166db0]"
+          >
+            <span className="text-[12px] font-bold text-[#495360] uppercase tracking-widest">
+              Zoom: {Math.round(zoom * 100)}%
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Main Drawing Area */}
