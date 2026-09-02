@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { IChingCard } from "../types";
-import CardDrawingView from "./CardDrawingView";
+import CardDrawingView, { getResetCanvasViewport } from "./CardDrawingView";
 
 const card: IChingCard = {
   id: "hex-1",
@@ -40,5 +40,34 @@ describe("Reset Canvas", () => {
     expect(markup).toContain('id="reset-button"');
     expect(markup).not.toContain("Tarot decks to 3 ordered decks each");
     expect(markup).not.toContain("Are you sure you want to clear the canvas");
+  });
+
+  it("opens with I Ching in FAN draw mode", () => {
+    Object.assign(globalThis, {
+      localStorage: { getItem: () => null, setItem: () => undefined },
+    });
+    const markup = renderToStaticMarkup(
+      <CardDrawingView
+        cards={[card]}
+        spreadCards={[]}
+        setSpreadCards={() => undefined}
+        labels={[]}
+        setLabels={() => undefined}
+        labelGroups={[]}
+        setLabelGroups={() => undefined}
+        user={null}
+        onMasterDataWritten={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('data-fan-deck-content="true"');
+    expect(markup).toContain('data-deck-controls-count="true"');
+    expect(markup).toContain(">iChing<");
+  });
+
+  it("resets the canvas position without changing the current zoom", () => {
+    expect(
+      getResetCanvasViewport({ zoom: 1.75, offset: { x: 420, y: -96 } }),
+    ).toEqual({ zoom: 1.75, offset: { x: 0, y: 0 } });
   });
 });

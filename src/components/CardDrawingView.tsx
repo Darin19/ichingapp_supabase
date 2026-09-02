@@ -155,6 +155,13 @@ const DEFAULT_CANVAS_VIEWPORT: CanvasViewport = {
   zoom: 1,
   offset: { x: 0, y: 0 },
 };
+
+export const getResetCanvasViewport = (
+  currentViewport: CanvasViewport,
+): CanvasViewport => ({
+  zoom: currentViewport.zoom,
+  offset: { ...DEFAULT_CANVAS_VIEWPORT.offset },
+});
 const DEFAULT_BULK_LABEL_PANEL_POSITION = { x: 20, y: 64 };
 const CUSTOM_LABEL_ID_PREFIX = "custom:";
 const CUSTOM_LABEL_GROUP_ID_PREFIX = "custom-group:";
@@ -514,7 +521,7 @@ export default function CardDrawingView({
   onMasterDataWritten,
 }: CardDrawingViewProps) {
   const [deckType, setDeckType] = useState<DeckType>("iching");
-  const [deckMode, setDeckMode] = useState<DeckMode>("random");
+  const [deckMode, setDeckMode] = useState<DeckMode>("fan");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [bulkSelectedCardIds, setBulkSelectedCardIds] = useState<string[]>([]);
   const [bulkSelectedLabelIds, setBulkSelectedLabelIds] = useState<string[]>(
@@ -691,11 +698,15 @@ export default function CardDrawingView({
     }));
   }, []);
 
-  const resetCanvasViewport = useCallback(() => {
-    setCanvasViewport({
-      zoom: DEFAULT_CANVAS_VIEWPORT.zoom,
-      offset: { ...DEFAULT_CANVAS_VIEWPORT.offset },
-    });
+  const resetCanvasViewport = useCallback((preserveZoom = false) => {
+    setCanvasViewport((currentViewport) =>
+      preserveZoom
+        ? getResetCanvasViewport(currentViewport)
+        : {
+            zoom: DEFAULT_CANVAS_VIEWPORT.zoom,
+            offset: { ...DEFAULT_CANVAS_VIEWPORT.offset },
+          },
+    );
   }, []);
 
   useEffect(() => {
@@ -1273,7 +1284,7 @@ export default function CardDrawingView({
     setSpreadCards([]);
     closeBulkLabelPanel();
     setDeckStates(resetDeckStates);
-    resetCanvasViewport();
+    resetCanvasViewport(true);
     isCanvasNoteDirtyRef.current = false;
     setCanvasNoteDraft("");
     setWorkingCanvasMeta(resetMetadata);

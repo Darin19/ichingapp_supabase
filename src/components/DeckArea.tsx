@@ -245,7 +245,7 @@ export default function DeckArea({
       {isFanMode ? (
         <div
           data-fan-deck-content="true"
-          className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-2"
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-2 pb-14"
         >
           {randomDecks.length > 1 && (
             <div
@@ -273,7 +273,6 @@ export default function DeckArea({
               deck={selectedFanDeck}
               deckIndex={selectedFanDeckIndex}
               deckType={deckType}
-              totalCards={totalCards}
               onDraw={onDraw}
             />
           </div>
@@ -421,6 +420,20 @@ export default function DeckArea({
           )}
         </div>
       </ScrollArea>
+      )}
+
+      {isFanMode && (
+        <div
+          data-deck-controls-count="true"
+          className="pointer-events-none absolute bottom-3 left-4 z-10 flex items-baseline gap-1.5"
+        >
+          <span className="text-[13px] font-bold tabular-nums leading-none text-[#166db0]">
+            {selectedFanDeck.length}/{totalCards}
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-wider leading-none text-[#64748b]">
+            {isTarotDeck ? "TAROT" : "I CHING"}
+          </span>
+        </div>
       )}
 
       {/* Resize Handle */}

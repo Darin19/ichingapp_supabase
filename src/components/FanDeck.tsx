@@ -7,8 +7,8 @@ const DEFAULT_SPREAD_WIDTH = 300;
 const DRAW_ANIMATION_MS = 160;
 export const MIN_CARD_WIDTH = 42;
 export const MAX_CARD_WIDTH = 76;
-export const MIN_ROW_GAP = 4;
-export const MAX_ROW_GAP = 10;
+export const MIN_ROW_GAP = 3;
+export const MAX_ROW_GAP = 8;
 const CARD_ASPECT_RATIO = 0.72;
 const ROW_TOP_PADDING = 8;
 
@@ -107,7 +107,6 @@ type FanDeckProps = {
   deck: DeckCard[];
   deckIndex: number;
   deckType: DeckType;
-  totalCards: number;
   onDraw: (
     cardId: string,
     x: number,
@@ -120,7 +119,6 @@ export default function FanDeck({
   deck,
   deckIndex,
   deckType,
-  totalCards,
   onDraw,
 }: FanDeckProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -177,7 +175,6 @@ export default function FanDeck({
   };
 
   const cardBack = isTarotDeck ? tarotCover : goldenDragon;
-  const deckName = isTarotDeck ? "Tarot" : "I Ching";
   const metrics = getFanDeckMetrics(availableWidth);
   const renderRow = (row: DeckCard[]) => (
     <div
@@ -210,7 +207,7 @@ export default function FanDeck({
                 src={cardBack}
                 alt=""
                 aria-hidden="true"
-                className="h-full w-full rounded-[3px] object-cover shadow-[0_6px_12px_rgba(15,23,42,0.22)]"
+                className="h-full w-full rounded-[3px] object-cover"
                 draggable={false}
               />
               <span className="pointer-events-none absolute inset-0 rounded-[3px] bg-gradient-to-br from-white/20 via-transparent to-black/20" />
@@ -234,16 +231,6 @@ export default function FanDeck({
           </div>
         ))}
       </div>
-
-      <div data-fan-count-footer="true" className="shrink-0 pt-3">
-        <p className="text-center text-[12px] font-bold tabular-nums text-[#166db0]">
-          {deck.length} / {totalCards}
-          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-[#64748b]">
-            {deckName}
-          </span>
-        </p>
-      </div>
-
       {deck.length === 0 && (
         <div className="absolute inset-x-0 top-0 flex h-[220px] items-center justify-center bg-white/80 backdrop-blur-[1px]">
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#ef4444]">

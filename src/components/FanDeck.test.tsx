@@ -40,9 +40,9 @@ describe("three-row FAN layout", () => {
     expect(splitDeckIntoRows(deck)).toEqual([deck.slice(0, 2), deck.slice(2, 4), deck.slice(4)]);
   });
 
-  it("keeps cards and row gaps clamped, then leaves added sidebar width as whitespace", () => {
-    expect(getFanDeckMetrics(1)).toMatchObject({ cardWidth: 42, rowGap: 4 });
-    expect(getFanDeckMetrics(1000)).toMatchObject({ cardWidth: 76, rowGap: 10 });
+  it("keeps cards and tighter row gaps clamped, then leaves added sidebar width as whitespace", () => {
+    expect(getFanDeckMetrics(1)).toMatchObject({ cardWidth: 42, rowGap: 3 });
+    expect(getFanDeckMetrics(1000)).toMatchObject({ cardWidth: 76, rowGap: 8 });
     expect(getFanDeckMetrics(600)).toEqual(getFanDeckMetrics(1000));
   });
 
@@ -103,8 +103,13 @@ describe("FAN draw mode", () => {
     expect(markup).toContain(">Order<");
     expect(markup).toContain('aria-label="Draw card 4 of 5 from fan 1"');
     expect(markup).not.toContain('aria-label="Draw card 4 of 5 from fan 2"');
-    expect(markup).toContain(">5 / 5<");
+    expect(markup).toContain(">5/5<");
     expect(markup).toContain('data-fan-deck-content="true"');
+    expect(markup).toContain('data-deck-controls-count="true"');
+    expect(markup).toContain("bottom-3 left-4");
+    expect(markup).toContain("pb-14");
+    expect(markup).not.toContain("rounded-md bg-white/95");
+    expect(markup).not.toContain("shadow-[0_6px_12px_rgba(15,23,42,0.22)]");
     expect(markup).toContain('data-deck-controls-header="true"');
     expect(markup).toContain('data-random-deck-toolbar="true"');
     expect(markup).toContain('aria-label="Shuffle all decks"');
@@ -135,13 +140,55 @@ describe("FAN draw mode", () => {
     expect(orderMarkup).not.toContain("Add New Deck");
   });
 
-  it("places the count in a dedicated FAN footer below the three rows", () => {
-    const markup = renderToStaticMarkup(
-      <FanDeck deck={deck} deckIndex={0} deckType="iching" totalCards={64} onDraw={() => undefined} />,
+  it("anchors the full I Ching and Tarot counts at the bottom-left of Deck Controls", () => {
+    const localStorage = { getItem: () => null, setItem: () => undefined };
+    Object.assign(globalThis, { localStorage });
+    const iChingCards = Array.from({ length: 64 }, (_, index) => ({
+      ...deck[0],
+      id: `iching-${index}`,
+    }));
+    const tarotCards = Array.from({ length: 78 }, (_, index) => ({
+      ...deck[0],
+      id: `tarot-${index}`,
+    }));
+    const iChingMarkup = renderToStaticMarkup(
+      <DeckArea
+        cards={iChingCards}
+        deckType="iching"
+        onDeckTypeChange={() => undefined}
+        mode="fan"
+        onModeChange={() => undefined}
+        onDraw={() => undefined}
+        randomDecks={[iChingCards]}
+        deckCount={1}
+        onShuffle={() => undefined}
+        onUpdateDeckCount={() => undefined}
+      />,
+    );
+    const tarotMarkup = renderToStaticMarkup(
+      <DeckArea
+        cards={tarotCards}
+        deckType="tarot"
+        onDeckTypeChange={() => undefined}
+        mode="fan"
+        onModeChange={() => undefined}
+        onDraw={() => undefined}
+        randomDecks={[tarotCards]}
+        deckCount={1}
+        onShuffle={() => undefined}
+        onUpdateDeckCount={() => undefined}
+      />,
     );
 
-    expect(markup).toContain('data-fan-count-footer="true"');
-    expect(markup).toContain(">5 / 64<");
-    expect((markup.match(/data-fan-card-row="true"/g) || []).length).toBe(3);
+    expect(iChingMarkup).toContain('data-deck-controls-count="true"');
+    expect(iChingMarkup).toContain(">64/64<");
+    expect(iChingMarkup).toContain(">I CHING<");
+    expect(tarotMarkup).toContain('data-deck-controls-count="true"');
+    expect(tarotMarkup).toContain(">78/78<");
+    expect(tarotMarkup).toContain(">TAROT<");
+    expect(tarotMarkup).toContain("text-[13px]");
+    expect(tarotMarkup).toContain("bottom-3 left-4");
+    expect(tarotMarkup).toContain("pb-14");
+    expect((tarotMarkup.match(/data-fan-card-row="true"/g) || []).length).toBe(3);
   });
 });
