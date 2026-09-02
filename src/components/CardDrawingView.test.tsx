@@ -74,7 +74,7 @@ describe("Reset Canvas", () => {
     ).toEqual({ zoom: 1.75, offset: { x: 0, y: 0 } });
   });
 
-  it("keeps the successful reset notification visible for one second", () => {
-    expect(RESET_SUCCESS_TOAST_DURATION_MS).toBe(1_000);
+  it("keeps the successful reset notification visible for half a second", () => {
+    expect(RESET_SUCCESS_TOAST_DURATION_MS).toBe(500);
   });
 });

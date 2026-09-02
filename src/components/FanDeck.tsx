@@ -8,7 +8,7 @@ const DRAW_ANIMATION_MS = 160;
 export const MIN_CARD_WIDTH = 42;
 export const MAX_CARD_WIDTH = 76;
 export const MIN_ROW_GAP = 0;
-export const MAX_ROW_GAP = 4;
+export const MAX_ROW_GAP = 2;
 const CARD_ASPECT_RATIO = 0.72;
 const ROW_TOP_PADDING = 8;
 
@@ -223,14 +223,13 @@ export default function FanDeck({
       <div
         ref={containerRef}
         data-fan-rows-container="true"
-        className="relative flex min-w-0 flex-col pt-1"
+        className="relative flex min-w-0 flex-col pt-0.5"
         style={{ gap: `${metrics.rowGap}px` }}
       >
         {rows.map((row, index) => (
           <div
             key={`fan-row-${index}`}
             data-fan-card-row="true"
-            className={index === 0 ? "-translate-y-0.5" : undefined}
           >
             {renderRow(row)}
           </div>

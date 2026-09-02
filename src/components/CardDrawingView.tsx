@@ -155,7 +155,7 @@ const DEFAULT_CANVAS_VIEWPORT: CanvasViewport = {
   zoom: 1,
   offset: { x: 0, y: 0 },
 };
-export const RESET_SUCCESS_TOAST_DURATION_MS = 1_000;
+export const RESET_SUCCESS_TOAST_DURATION_MS = 500;
 
 export const getResetCanvasViewport = (
   currentViewport: CanvasViewport,
