@@ -223,14 +223,13 @@ export default function FanDeck({
       <div
         ref={containerRef}
         data-fan-rows-container="true"
-        className="relative flex min-w-0 flex-col pt-1"
+        className="relative flex min-w-0 flex-col pt-1 -translate-y-[3px]"
         style={{ gap: `${metrics.rowGap}px` }}
       >
         {rows.map((row, index) => (
           <div
             key={`fan-row-${index}`}
             data-fan-card-row="true"
-            className={index === 0 ? "-translate-y-0.5" : undefined}
           >
             {renderRow(row)}
           </div>

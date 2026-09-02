@@ -10,6 +10,6 @@ createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
-    {import.meta.env.DEV && <Agentation />}
+    {import.meta.env.DEV && <Agentation endpoint="http://localhost:4747" />}
   </StrictMode>,
 );

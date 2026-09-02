@@ -105,8 +105,8 @@ describe("FAN draw mode", () => {
     expect(markup).not.toContain('aria-label="Draw card 4 of 5 from fan 2"');
     expect(markup).toContain('data-fan-deck-content="true"');
     expect(markup).not.toContain('data-deck-controls-count="true"');
-    expect(markup).toContain('data-fan-card-row="true" class="-translate-y-0.5"');
-    expect(markup).toContain('data-fan-rows-container="true" class="relative flex min-w-0 flex-col pt-1"');
+    expect(markup).not.toContain('class="-translate-y-[5px]"');
+    expect(markup).toContain('data-fan-rows-container="true" class="relative flex min-w-0 flex-col pt-1 -translate-y-[3px]"');
     expect(markup).not.toContain("rounded-md bg-white/95");
     expect(markup).not.toContain("shadow-[0_6px_12px_rgba(15,23,42,0.22)]");
     expect(markup).toContain('data-deck-controls-header="true"');
