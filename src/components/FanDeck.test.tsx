@@ -41,8 +41,8 @@ describe("three-row FAN layout", () => {
   });
 
   it("keeps cards and two-pixel tighter row gaps clamped, then leaves added sidebar width as whitespace", () => {
-    expect(getFanDeckMetrics(1)).toMatchObject({ cardWidth: 42, rowGap: 1 });
-    expect(getFanDeckMetrics(1000)).toMatchObject({ cardWidth: 76, rowGap: 6 });
+    expect(getFanDeckMetrics(1)).toMatchObject({ cardWidth: 42, rowGap: 0 });
+    expect(getFanDeckMetrics(1000)).toMatchObject({ cardWidth: 76, rowGap: 4 });
     expect(getFanDeckMetrics(600)).toEqual(getFanDeckMetrics(1000));
   });
 
@@ -109,6 +109,7 @@ describe("FAN draw mode", () => {
     expect(markup).toContain("bottom-3 left-4");
     expect(markup).toContain("pb-14");
     expect(markup).toContain('data-fan-card-row="true" class="-translate-y-0.5"');
+    expect(markup).toContain('data-fan-rows-container="true"');
     expect(markup).not.toContain("rounded-md bg-white/95");
     expect(markup).not.toContain("shadow-[0_6px_12px_rgba(15,23,42,0.22)]");
     expect(markup).toContain('data-deck-controls-header="true"');

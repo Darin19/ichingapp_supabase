@@ -155,6 +155,7 @@ const DEFAULT_CANVAS_VIEWPORT: CanvasViewport = {
   zoom: 1,
   offset: { x: 0, y: 0 },
 };
+export const RESET_SUCCESS_TOAST_DURATION_MS = 1_000;
 
 export const getResetCanvasViewport = (
   currentViewport: CanvasViewport,
@@ -1312,7 +1313,7 @@ export default function CardDrawingView({
       });
       if (error) throw error;
       didClearCanvasInDb = true;
-      toast.success("Canvas reset");
+      toast.success("Canvas reset", { duration: RESET_SUCCESS_TOAST_DURATION_MS });
     } catch (error) {
       console.error("Reset failed:", error);
       if (!didClearCanvasInDb) {

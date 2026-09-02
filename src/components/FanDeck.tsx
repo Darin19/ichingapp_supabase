@@ -7,8 +7,8 @@ const DEFAULT_SPREAD_WIDTH = 300;
 const DRAW_ANIMATION_MS = 160;
 export const MIN_CARD_WIDTH = 42;
 export const MAX_CARD_WIDTH = 76;
-export const MIN_ROW_GAP = 1;
-export const MAX_ROW_GAP = 6;
+export const MIN_ROW_GAP = 0;
+export const MAX_ROW_GAP = 4;
 const CARD_ASPECT_RATIO = 0.72;
 const ROW_TOP_PADDING = 8;
 
@@ -219,10 +219,11 @@ export default function FanDeck({
   );
 
   return (
-    <section className="relative flex min-h-0 min-w-0 flex-1 flex-col" aria-label={`Fan ${deckIndex + 1}`}>
+    <section className="relative min-w-0" aria-label={`Fan ${deckIndex + 1}`}>
       <div
         ref={containerRef}
-        className="relative flex min-h-0 min-w-0 flex-1 flex-col pt-1"
+        data-fan-rows-container="true"
+        className="relative flex min-w-0 flex-col pt-1"
         style={{ gap: `${metrics.rowGap}px` }}
       >
         {rows.map((row, index) => (

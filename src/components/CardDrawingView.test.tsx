@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { IChingCard } from "../types";
-import CardDrawingView, { getResetCanvasViewport } from "./CardDrawingView";
+import CardDrawingView, {
+  getResetCanvasViewport,
+  RESET_SUCCESS_TOAST_DURATION_MS,
+} from "./CardDrawingView";
 
 const card: IChingCard = {
   id: "hex-1",
@@ -69,5 +72,9 @@ describe("Reset Canvas", () => {
     expect(
       getResetCanvasViewport({ zoom: 1.75, offset: { x: 420, y: -96 } }),
     ).toEqual({ zoom: 1.75, offset: { x: 0, y: 0 } });
+  });
+
+  it("keeps the successful reset notification visible for one second", () => {
+    expect(RESET_SUCCESS_TOAST_DURATION_MS).toBe(1_000);
   });
 });
