@@ -703,115 +703,129 @@ export default function LabelMasterView({
         </div>
         <ScrollArea className="flex-1 min-h-0 h-full">
           <div className="p-4 space-y-2">
-            {orderedGroups.map((group) => (
-              <div
-                ref={(node) => {
-                  if (node) groupItemRefs.current.set(group.id, node);
-                  else groupItemRefs.current.delete(group.id);
-                }}
-                key={group.id}
-                className={`group relative flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer border transition-colors ${
-                  selectedGroupId === group.id
-                    ? "bg-[#166db0]/5 border-[#166db0] text-[#166db0]"
-                    : "hover:bg-[#f8f9fa] text-[#495360] border-transparent"
-                } ${activeDraggingGroupId === group.id ? "border-[#166db0] bg-[#166db0]/10 ring-2 ring-[#166db0]/25 shadow-[0_8px_22px_rgba(22,109,176,0.16)]" : ""}`}
-                onClick={() => setSelectedGroupId(group.id)}
-              >
-                {dropIndicator?.kind === "group" &&
-                  dropIndicator.targetId === group.id && (
+            {orderedGroups.map((group) => {
+              const labelCount = labels.filter(
+                (label) => label.groupId === group.id,
+              ).length;
+              const countLabel = `${labelCount} ${labelCount === 1 ? "label" : "labels"}`;
+
+              return (
+                <div
+                  ref={(node) => {
+                    if (node) groupItemRefs.current.set(group.id, node);
+                    else groupItemRefs.current.delete(group.id);
+                  }}
+                  key={group.id}
+                  className={`group relative flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer border transition-colors ${
+                    selectedGroupId === group.id
+                      ? "bg-[#166db0]/5 border-[#166db0] text-[#166db0]"
+                      : "hover:bg-[#f8f9fa] text-[#495360] border-transparent"
+                  } ${activeDraggingGroupId === group.id ? "border-[#166db0] bg-[#166db0]/10 ring-2 ring-[#166db0]/25 shadow-[0_8px_22px_rgba(22,109,176,0.16)]" : ""}`}
+                  onClick={() => setSelectedGroupId(group.id)}
+                >
+                  {dropIndicator?.kind === "group" &&
+                    dropIndicator.targetId === group.id && (
+                      <div
+                        className={`absolute left-3 right-3 h-[3px] rounded-full bg-[#166db0] shadow-[0_0_0_3px_rgba(22,109,176,0.16)] ${
+                          dropIndicator.position === "before"
+                            ? "-top-[7px]"
+                            : "-bottom-[7px]"
+                        }`}
+                      />
+                    )}
+                  {editingGroupId === group.id ? (
                     <div
-                      className={`absolute left-3 right-3 h-[3px] rounded-full bg-[#166db0] shadow-[0_0_0_3px_rgba(22,109,176,0.16)] ${
-                        dropIndicator.position === "before"
-                          ? "-top-[7px]"
-                          : "-bottom-[7px]"
-                      }`}
-                    />
+                      className="flex items-center gap-1 flex-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Input
+                        value={editingGroupName}
+                        onChange={(e) => setEditingGroupName(e.target.value)}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === "Enter" &&
+                            !event.nativeEvent.isComposing
+                          ) {
+                            event.preventDefault();
+                            void saveEditGroup();
+                          }
+                        }}
+                        className="h-8 text-xs bg-white border-[#166db0] rounded-lg"
+                        autoFocus
+                      />
+                      <button
+                        onClick={saveEditGroup}
+                        aria-label="Save label group name"
+                        title="Save label group name"
+                        className="text-green-500 hover:text-green-600 p-1"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setEditingGroupId(null)}
+                        aria-label="Cancel editing label group"
+                        title="Cancel editing label group"
+                        className="text-red-500 hover:text-red-600 p-1"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <span
+                          role="button"
+                          aria-label="Drag label group"
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDown={(event) =>
+                            startPointerDrag(event, "group", group)
+                          }
+                          className="shrink-0 cursor-grab touch-none rounded-lg p-1 text-[#94a3b8] transition-colors hover:bg-white hover:text-[#166db0] active:cursor-grabbing"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </span>
+                        <span
+                          className={`truncate text-[15px] font-extrabold ${selectedGroupId === group.id ? "text-[#0f172a]" : ""}`}
+                        >
+                          {group.name}
+                        </span>
+                        <span
+                          data-label-group-count="true"
+                          aria-label={countLabel}
+                          className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-[#eaf3fa] px-1.5 py-0.5 text-[11px] font-extrabold tabular-nums text-[#166db0]"
+                        >
+                          {labelCount}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditGroup(group);
+                          }}
+                          aria-label={`Edit label group ${group.name}`}
+                          title={`Edit label group ${group.name}`}
+                          className="p-1.5 hover:bg-white rounded-lg hover:text-[#166db0] transition-colors"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirmDeleteGroup(group.id);
+                          }}
+                          aria-label={`Delete label group ${group.name}`}
+                          title={`Delete label group ${group.name}`}
+                          className="p-1.5 hover:bg-white rounded-lg hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </>
                   )}
-                {editingGroupId === group.id ? (
-                  <div
-                    className="flex items-center gap-1 flex-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Input
-                      value={editingGroupName}
-                      onChange={(e) => setEditingGroupName(e.target.value)}
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === "Enter" &&
-                          !event.nativeEvent.isComposing
-                        ) {
-                          event.preventDefault();
-                          void saveEditGroup();
-                        }
-                      }}
-                      className="h-8 text-xs bg-white border-[#166db0] rounded-lg"
-                      autoFocus
-                    />
-                    <button
-                      onClick={saveEditGroup}
-                      aria-label="Save label group name"
-                      title="Save label group name"
-                      className="text-green-500 hover:text-green-600 p-1"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setEditingGroupId(null)}
-                      aria-label="Cancel editing label group"
-                      title="Cancel editing label group"
-                      className="text-red-500 hover:text-red-600 p-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <span
-                        role="button"
-                        aria-label="Drag label group"
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(event) =>
-                          startPointerDrag(event, "group", group)
-                        }
-                        className="shrink-0 cursor-grab touch-none rounded-lg p-1 text-[#94a3b8] transition-colors hover:bg-white hover:text-[#166db0] active:cursor-grabbing"
-                      >
-                        <GripVertical className="h-4 w-4" />
-                      </span>
-                      <span
-                        className={`truncate text-[15px] font-extrabold ${selectedGroupId === group.id ? "text-[#0f172a]" : ""}`}
-                      >
-                        {group.name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startEditGroup(group);
-                        }}
-                        aria-label={`Edit label group ${group.name}`}
-                        title={`Edit label group ${group.name}`}
-                        className="p-1.5 hover:bg-white rounded-lg hover:text-[#166db0] transition-colors"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmDeleteGroup(group.id);
-                        }}
-                        aria-label={`Delete label group ${group.name}`}
-                        title={`Delete label group ${group.name}`}
-                        className="p-1.5 hover:bg-white rounded-lg hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </ScrollArea>
       </aside>
