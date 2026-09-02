@@ -223,7 +223,7 @@ export default function FanDeck({
       <div
         ref={containerRef}
         data-fan-rows-container="true"
-        className="relative flex min-w-0 flex-col pt-1 -translate-y-[3px]"
+        className="relative flex min-w-0 flex-col pt-1 -translate-y-[6px]"
         style={{ gap: `${metrics.rowGap}px` }}
       >
         {rows.map((row, index) => (
