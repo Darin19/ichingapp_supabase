@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DeckCard, DeckType } from "../types";
 import goldenDragon from "../assets/images/golden_dragon.png";
 import tarotCover from "../assets/images/ady.jpg";
 
 const DEFAULT_SPREAD_WIDTH = 300;
-const DRAW_ANIMATION_MS = 160;
 export const MIN_CARD_WIDTH = 42;
 export const MAX_CARD_WIDTH = 76;
 export const MIN_ROW_GAP = 0;
@@ -28,6 +27,14 @@ export type FanDeckMetrics = {
 
 export const getFanCardSelection = (deck: DeckCard[], selectedIndex: number) =>
   deck[selectedIndex];
+
+export const preloadCardImage = (src: string | undefined) => {
+  if (!src || typeof Image === "undefined") return;
+  const preload = new Image();
+  preload.decoding = "async";
+  preload.src = src;
+  void preload.decode?.().catch(() => undefined);
+};
 
 export const clampFanDeckIndex = (index: number, deckCount: number) =>
   Math.min(Math.max(index, 0), Math.max(deckCount - 1, 0));
@@ -122,7 +129,6 @@ export default function FanDeck({
   onDraw,
 }: FanDeckProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const drawTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [availableWidth, setAvailableWidth] = useState(DEFAULT_SPREAD_WIDTH);
   const [storedRows, setStoredRows] = useState<FanRows<DeckCard>>(() =>
@@ -130,22 +136,19 @@ export default function FanDeck({
   );
   const isTarotDeck = deckType === "tarot";
 
-  useEffect(
-    () => () => {
-      if (drawTimeoutRef.current) clearTimeout(drawTimeoutRef.current);
-    },
-    [],
-  );
-
   useEffect(() => {
     setSelectedCardId(null);
   }, [deck]);
 
-  const rows = reconcileFanRows(storedRows, deck);
+  const rows = useMemo(() => reconcileFanRows(storedRows, deck), [storedRows, deck]);
+  const deckIndexById = useMemo(
+    () => new Map(deck.map((card, index) => [card.id, index])),
+    [deck],
+  );
 
   useEffect(() => {
-    setStoredRows((previousRows) => reconcileFanRows(previousRows, deck));
-  }, [deck]);
+    setStoredRows(rows);
+  }, [rows]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -162,16 +165,10 @@ export default function FanDeck({
     if (selectedCardId !== null) return;
 
     setSelectedCardId(card.id);
-    const completeDraw = () => onDraw(card.id, 150, 150, deckIndex);
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (prefersReducedMotion) {
-      completeDraw();
-      return;
+    if (isTarotDeck) {
+      preloadCardImage(card.imageUrl || card.imgPath);
     }
-
-    drawTimeoutRef.current = setTimeout(completeDraw, DRAW_ANIMATION_MS);
+    onDraw(card.id, 150, 150, deckIndex);
   };
 
   const cardBack = isTarotDeck ? tarotCover : goldenDragon;
@@ -182,7 +179,7 @@ export default function FanDeck({
       style={{ height: `${metrics.cardHeight + ROW_TOP_PADDING}px` }}
     >
       {row.map((card, index) => {
-        const cardIndex = deck.indexOf(card);
+        const cardIndex = deckIndexById.get(card.id) ?? index;
         const layout = getSpreadRowLayout(index, row.length, availableWidth);
         const isSelected = selectedCardId === card.id;
 

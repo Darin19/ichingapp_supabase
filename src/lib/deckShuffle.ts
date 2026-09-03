@@ -1,6 +1,7 @@
 export type RandomDeckControlState<T> = {
   deckCount: number;
   randomDecks: T[][];
+  deckIds?: string[];
 };
 
 export type RandomDeckStates<T> = {

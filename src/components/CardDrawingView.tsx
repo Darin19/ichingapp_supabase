@@ -111,6 +111,7 @@ type CanvasViewport = {
 type DeckControlState = {
   deckCount: number;
   randomDecks: DeckCard[][];
+  deckIds?: string[];
 };
 
 type StoredDeckControlState = {
@@ -303,7 +304,27 @@ const createDeckControlStateFromRpc = (
   return {
     deckCount: result?.deck_count ?? randomDecks.length,
     randomDecks,
+    deckIds: [...rpcDecks]
+      .sort(
+        (a, b) =>
+          (a.orderIndex ?? a.order_index ?? Number.MAX_SAFE_INTEGER) -
+            (b.orderIndex ?? b.order_index ?? Number.MAX_SAFE_INTEGER) ||
+          (a.id || "").localeCompare(b.id || ""),
+      )
+      .map((deck) => deck.id)
+      .filter((id): id is string => Boolean(id)),
   } satisfies DeckControlState;
+};
+
+export const buildShuffleV2Payload = (
+  deckState: DeckControlState,
+  deckIds: string[] | undefined,
+) => {
+  if (!deckIds || deckIds.length !== deckState.randomDecks.length) return null;
+  return deckState.randomDecks.map((cards, index) => ({
+    id: deckIds[index],
+    cardIds: cards.map((card) => card.id),
+  }));
 };
 
 const serializeDeckControlState = (
@@ -953,7 +974,7 @@ export default function CardDrawingView({
 
       deckLoadVersionRef.current[targetDeckType] += 1;
       const deckStateToApply = shouldKeepRecentLocalDeck
-        ? storedDeckState!
+        ? { ...storedDeckState!, deckIds: nextDeckState.deckIds }
         : nextDeckState;
       const nextDeckStates = {
         ...deckStatesRef.current,
@@ -1818,12 +1839,21 @@ export default function CardDrawingView({
 
     const id = crypto.randomUUID();
     const sourceDeckType = deckType;
+    const cardData = activeCards.find((c) => c.id === cardId);
+    if (!cardData) {
+      console.error("Draw card failed: card is not available", {
+        cardId,
+        deckType: sourceDeckType,
+      });
+      toast.error("This card is no longer available. Refresh or reset the deck.");
+      return;
+    }
     const pendingShuffle = pendingShuffleRef.current[sourceDeckType];
     if (pendingShuffle) {
-      await pendingShuffle.catch(() => undefined);
+      void pendingShuffle.catch((error) => {
+        console.warn("Shuffle persistence failed while drawing; continuing optimistically", error);
+      });
     }
-    const cardData = activeCards.find((c) => c.id === cardId);
-    if (!cardData) return;
     const previousSpreadCards = spreadCardsRef.current;
     const previousDeckStates = deckStatesRef.current;
     const endCanvasMutation = beginCanvasMutation();
@@ -2258,8 +2288,16 @@ export default function CardDrawingView({
       // Let the database shuffle its canonical remaining cards. The client can
       // legitimately be behind after an interrupted draw, so its local card-id
       // list must not be used as a strict server-side permutation payload.
-      const { data, error } = await supabaseClient.rpc("shuffle_random_decks", {
+      const payload = buildShuffleV2Payload(
+        optimisticDeckStates[targetDeckType],
+        optimisticDeckStates[targetDeckType].deckIds,
+      );
+      if (!payload) {
+        throw new Error(`Missing deck IDs for ${targetDeckType} shuffle`);
+      }
+      const { data, error } = await supabaseClient.rpc("shuffle_random_decks_v2", {
         p_deck_type: targetDeckType,
+        p_decks: payload,
       });
       if (error) throw error;
 

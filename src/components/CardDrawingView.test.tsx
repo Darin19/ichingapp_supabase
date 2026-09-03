@@ -2,10 +2,27 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { IChingCard } from "../types";
 import CardDrawingView, {
+  buildShuffleV2Payload,
   getZoomFromPercentageInput,
   getResetCanvasViewport,
   RESET_SUCCESS_TOAST_DURATION_MS,
 } from "./CardDrawingView";
+
+describe("shuffle_random_decks_v2 payload", () => {
+  it("persists the exact client permutation with canonical deck IDs", () => {
+    const first = { id: "a", deckType: "iching" as const, number: 1, vietnameseName: "A", englishName: "A", imgPath: "" };
+    const second = { ...first, id: "b", number: 2 };
+    expect(
+      buildShuffleV2Payload(
+        { deckCount: 2, deckIds: ["deck-1", "deck-2"], randomDecks: [[second, first], [first]] },
+        ["deck-1", "deck-2"],
+      ),
+    ).toEqual([
+      { id: "deck-1", cardIds: ["b", "a"] },
+      { id: "deck-2", cardIds: ["a"] },
+    ]);
+  });
+});
 
 const card: IChingCard = {
   id: "hex-1",

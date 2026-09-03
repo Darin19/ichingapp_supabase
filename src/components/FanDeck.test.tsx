@@ -8,6 +8,7 @@ import {
   getFanDeckMetrics,
   getFanCardSelection,
   getSpreadRowLayout,
+  preloadCardImage,
   reconcileFanRows,
   splitDeckIntoRows,
 } from "./FanDeck";
@@ -27,6 +28,26 @@ describe("getFanCardSelection", () => {
 
   it("does not select a card for an out-of-range fan position", () => {
     expect(getFanCardSelection(deck, 5)).toBeUndefined();
+  });
+});
+
+describe("Tarot image loading", () => {
+  it("preloads the selected card image without requiring a DOM", () => {
+    const images: Array<{ src: string; decoding: string }> = [];
+    class FakeImage {
+      src = "";
+      decoding = "";
+      decode = async () => undefined;
+      constructor() {
+        images.push(this);
+      }
+    }
+    Object.assign(globalThis, { Image: FakeImage });
+
+    preloadCardImage("/tarot/fool.jpg");
+
+    expect(images).toHaveLength(1);
+    expect(images[0]).toMatchObject({ src: "/tarot/fool.jpg", decoding: "async" });
   });
 });
 
